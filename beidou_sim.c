@@ -299,40 +299,88 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
 
     //TODO 目前只模仿第一帧
 
+    // 帧同步码
+    unsigned long pre = 0x712UL;
+    // 保留字段
+    unsigned long rev = 0UL;
     /**
-     * 设置模拟的固定时间，模拟的时间为:2021.4.30 13:10:10
+     * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * second 19 bits
      * week 10 bits
      * mask 12 bits, 每位都为1，取second的后12位
      */
-    unsigned long second = 0x750B2;
-    // 取后12位
-    unsigned long mask_12 = 0xFFF;
-    unsigned long week = 0x31F;
+    unsigned long second = 0x69780;
+    unsigned long week = 0x30E;
+    //TODO 暂定为一天内的秒数
+    unsigned long toc = 0UL;
+    // TODO TGD1 暂存整数，82, 存补码形式
+    unsigned long TGD1 = 0x82UL;
+    // TODO TGD1 暂存整数，-15, 存补码形式
+    unsigned long TGD2 = 0x3F1UL;
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧
+    ////////////////////////////////////////////////////////////
+
     /**
+     * 第一个字
      * Pre | Rev | FraId | SOW(前8bit)
      * Pre(11bit)，帧同步码，默认为 11100010010
      * Rev(4bit)，保留字段，未参与计算
      * FraId(3bit)，子帧计数，第一帧为 1
      * SOW(前8bit)，周内秒计数
      */
-    sbf[0][0] = 0x712UL << 19 | 0x1UL << 12 | second >> 12;
+    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | second >> 12;
     /**
+     * 第二个字
      * SOW | SatH1 | AODC | URAI
      * SOW(后12bit)，周内秒计数
      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
      * AODC(5bit)，时钟数据龄期，暂定为 27
      * URAI(4bit)，用户距离精度指数，暂定为 2
      */
-    sbf[0][1] = ( second & mask_12) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
     /**
+     * 第三个字
      * WN | toc
      * WN(13bit)，整周计数
-     * TODO toc(前9bit)，时钟时间
+     * toc(前9bit)，时钟时间
      */
-    sbf[0][2] = week << 17;
-    // sbf[0][3] = ;
-    // sbf[0][4] = ;
+    sbf[0][2] = week << 17 | toc << 8;
+    /**
+     * 第四个字
+     * toc | TGD1 | TGD2
+     * toc(后8bit)，时钟时间
+     * TGD1(10bit) 星上设备时延差
+     * TGD2(前4bit) 星上设备时延差
+     */
+    sbf[0][3] = (toc & 0xFF) << 22 | TGD1 << 12 | TGD2 >> 6;
+    /**
+     * 第五个字
+     * TGD2 | a0 | a1
+     * TGD2(后6bit) 星上设备时延差
+     */
+    sbf[0][4] = (TGD2 & 0x3FUL) << 24 | 0UL << 8;
+    /**
+     * 第六个字
+     */
+    sbf[0][5] = 0UL;
+     /**
+      * 第七个字
+      */
+    sbf[0][6] = 0UL;
+    /**
+      * 第八个字
+      */
+    sbf[0][6] = 0UL;
+    /**
+      * 第九个字
+      */
+    sbf[0][6] = 0UL;
+    /**
+      * 第十个字
+      */
+    sbf[0][6] = 0UL;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -363,10 +411,12 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     }*/
     // 第一帧第一个字单独处理
     nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
-    // 第一帧第二个字
-    nav_word_gen(chan->subframe[0][1], false, chan->subframe_word_bits[1]);
-    // 第一帧第三个字
-    nav_word_gen(chan->subframe[0][2], false, chan->subframe_word_bits[2]);
+    // 处理剩余的字
+    int start = 1;
+    for(int i = start; i < WORD_NUM; ++i){
+        nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+    }
+
 }
 
 void init(beidou_channel *chan){
@@ -376,7 +426,7 @@ void init(beidou_channel *chan){
     chan->ibit = 0;
     chan->iword = 0;
     // 20bits NH码
-    chan->NH_code = 0x4D4E;
+    chan->NH_code = 0x4D4EUL;
     // 从高位开始为第一位
     chan->iNH_code = 1;
     chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;

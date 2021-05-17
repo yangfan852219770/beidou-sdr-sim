@@ -18,9 +18,11 @@
 // #define HALF_WORD_LEN (15)
 // 子帧个数
 #define SUBFRAME_NUM (5)
-// 字个数，暂时模仿3个
-#define WORD_NUM (3)
+// 字个数，暂时模仿10个
+#define WORD_NUM (10)
 
+#define SECONDS_IN_WEEK (604800.0)
+#define SECONDS_IN_HALF_WEEK (302400.0)
 #define SECONDS_IN_DAY (86400.0)
 #define SECONDS_IN_HOUR (3600.0)
 #define SECONDS_IN_MINUTE (60.0)
