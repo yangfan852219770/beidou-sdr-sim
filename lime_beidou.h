@@ -11,11 +11,9 @@
 #include "beidou_sim.h"
 
 // 发送频率
-#define TX_FREQUENCY 1561.098e6
-// 采样率
-#define TX_SAMPLERATE 2e6
-// 带宽
-#define TX_BANDWIDTH 4.092e6
+#define TX_FREQUENCY 1561098000
+#define TX_SAMPLERATE   2500000
+#define TX_BANDWIDTH    5000000
 // I/Q采样数量
 #define NUM_IQ_SAMPLES  (TX_SAMPLERATE / 10)
 #define FIFO_LENGTH     (NUM_IQ_SAMPLES * 2)

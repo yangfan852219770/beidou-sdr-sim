@@ -12,7 +12,7 @@ int NH_code[] = {
 
 int main(int argc, char const *argv[])
 {
-    /*
+
     int a1[11] = {0,1,1,1,1,0,1,0,0,1,0},a2[15];
     BCH_code_gen(a1, 11, a2);
     printf("Msg:");
@@ -21,7 +21,7 @@ int main(int argc, char const *argv[])
     putchar('\n');
     parse_BCH(a2,15);
     return 0;
-     */
+
     // 时间转换测试
     /*
     UTC_time u_time;

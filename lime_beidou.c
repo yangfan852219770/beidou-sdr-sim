@@ -87,7 +87,6 @@ void *tx_task(void *arg)
 {
     sim_t *s = (sim_t *)arg;
     size_t samples_populated;
-
     while (1) {
         int16_t *tx_buffer_current = s->tx.buffer;
         unsigned int buffer_samples_remaining = SAMPLES_PER_BUFFER;
@@ -99,7 +98,6 @@ void *tx_task(void *arg)
             {
                 pthread_cond_wait(&(s->fifo_read_ready), &(s->beidou.lock));
             }
-//			assert(get_sample_length(s) > 0);
 
             samples_populated = fifo_read(tx_buffer_current,
                                           buffer_samples_remaining,
@@ -108,37 +106,18 @@ void *tx_task(void *arg)
 
             pthread_cond_signal(&(s->fifo_write_ready));
 #if 0
-            if (is_fifo_write_ready(s)) {
-				/*
-				printf("\rTime = %4.1f", s->time);
-				s->time += 0.1;
-				fflush(stdout);
-				*/
-			}
-			else if (is_finished_generation(s))
-			{
-				goto out;
-			}
+			if (is_finished_generation(s)
+			    goto out;
 #endif
             // Advance the buffer pointer.
             buffer_samples_remaining -= (unsigned int)samples_populated;
             tx_buffer_current += (2 * samples_populated);
         }
 
-        // If there were no errors, transmit the data buffer.
         LMS_SendStream(&s->tx.stream, s->tx.buffer, SAMPLES_PER_BUFFER, NULL, 1000);
-        if (is_fifo_write_ready(s)) {
-            /*
-            printf("\rTime = %4.1f", s->time);
-            s->time += 0.1;
-            fflush(stdout);
-            */
-        }
-        else if (is_finished_generation(s))
-        {
-            goto out;
-        }
 
+        if (is_finished_generation(s))
+            goto out;
     }
     out:
     return NULL;
@@ -164,6 +143,9 @@ int start_beidou_task(sim_t *s)
 
 int main(){
     sim_t s;
+
+    s.finished = false;
+
     // 查找设备
 	int device_count = LMS_GetDeviceList(NULL);
     // 增益
@@ -188,7 +170,8 @@ int main(){
 
 	// 分配I/Q缓存
 	s.tx.buffer = (int16_t *)malloc(SAMPLES_PER_BUFFER * sizeof(int16_t) * 2);
-    if (s.tx.buffer == NULL)
+
+	if (s.tx.buffer == NULL)
     {
         printf("ERROR: 分配tx buffer失败.\n");
         goto out;
@@ -315,9 +298,8 @@ int main(){
 	}
     // 启动Tx流
     LMS_StartStream(&s.tx.stream);
-    // 发送北斗数据
 
-    // Start beidou task.
+    // 发送北斗数据
     s.status = start_beidou_task(&s);
     if (s.status < 0) {
         fprintf(stderr, "Failed to start BEIDOU task.\n");
@@ -326,7 +308,7 @@ int main(){
     else
         printf("Creating BEIDOU task...\n");
 
-    // Wait until biedou task is initialized
+    // Wait until beidou task is initialized
     pthread_mutex_lock(&(s.tx.lock));
     while (!s.beidou.ready)
         pthread_cond_wait(&(s.beidou.initialization_done), &(s.tx.lock));
@@ -345,16 +327,23 @@ int main(){
     else
         printf("Creating TX task...\n");
 
+    printf("Running...\n" "Press Ctrl+C to abort.\n");
     // Wainting for TX task to complete.
     pthread_join(s.tx.thread, NULL);
+
     printf("\nDone!\n");
 
 out:
     // 关闭Tx流
     LMS_StopStream(&s.tx.stream);
     LMS_DestroyStream(device, &s.tx.stream);
+    if (s.tx.buffer != NULL)
+        free(s.tx.buffer);
+
+    if (s.fifo != NULL)
+        free(s.fifo);
     // 关闭设备
-    printf("Closing device...\n");
+    printf("\nClosing device...\n");
 	LMS_EnableChannel(device, LMS_CH_TX, channel, false);
 	LMS_Close(device);
 

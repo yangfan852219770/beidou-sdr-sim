@@ -87,12 +87,19 @@ typedef struct
     unsigned long subframe_word[3];
     // 目前只模仿第一帧
     int subframe_word_bits[WORD_NUM][WORD_LEN];
+    // 导航信息数据
     int data_bit;
+    // 第几位导航数据
     int ibit;
+    // 第几个字
     int iword;
-    int iNH_code;
-    unsigned long NH_code; // NH码
+    // NH码
+    unsigned long NH_code;
+    // NH码位数据
     int NH_code_bit;
+    // 第几位NH码
+    int iNH_code;
+    int iTable;
 } beidou_channel;
 
 /** Generate PRN code

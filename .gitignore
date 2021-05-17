@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+# Workspace
+.idea
+
 # Object files
 *.o
 *.ko

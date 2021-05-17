@@ -204,12 +204,14 @@ void BCH_code_gen(int *n1, int n1_length, int *nav_msg){
         BCH_code[3] = BCH_code[2];
         BCH_code[2] = temp_d1;
     }
-    
-    // 第3位为纠错码的第一位，BCH数组倒着输出
+
+    /*
+     * 第3位为纠错码的第一位，BCH数组倒着输出
     printf("4bit BCH code:");
     for(i = BCH_CORRECT_CODE_LEN - 1; i >= 0; --i)
         printf("%d ", BCH_code[i]);
     putchar('\n');
+    */
 
     // 将BCH_code与n1合成导航信息
     for(i = 0; i < n1_length; ++i)
@@ -360,11 +362,11 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
     }*/
     // 第一帧第一个字单独处理
-    nav_word_gen(chan->subframe[0][0], true, &chan->subframe_word_bits[0]);
+    nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
     // 第一帧第二个字
-    nav_word_gen(chan->subframe[0][1], false, &chan->subframe_word_bits[1]);
+    nav_word_gen(chan->subframe[0][1], false, chan->subframe_word_bits[1]);
     // 第一帧第三个字
-    nav_word_gen(chan->subframe[0][2], false, &chan->subframe_word_bits[2]);
+    nav_word_gen(chan->subframe[0][2], false, chan->subframe_word_bits[2]);
 }
 
 void init(beidou_channel *chan){
@@ -378,6 +380,7 @@ void init(beidou_channel *chan){
     // 从高位开始为第一位
     chan->iNH_code = 1;
     chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;
+    chan->iTable = 0;
     return;
 }
 
@@ -399,18 +402,19 @@ void *beidou_task(void *arg){
     // TODO ionoutc目前不用
     ionoutc_t ionoutc;
     // 模拟信号的时间，模拟300s
-    int duration = 300;
+    int duration = 3000;
     int idura;
 
     int i, j;
 
+    double timer = 0;
     iTable = 0;
 
     iq_buff_size = NUM_IQ_SAMPLES;
     iq_buff = calloc(2*iq_buff_size, 2);
     if (iq_buff==NULL)
     {
-        printf("ERROR: 分配 I/Q buff失败!\n");
+        printf("ERROR: 分配 I/Q buff失败.\n");
         goto exit;
     }
 
@@ -438,19 +442,21 @@ void *beidou_task(void *arg){
                 init(&chan[i]);
         }
 
+        // 生成发射数据
         for(isamp = 0; isamp < iq_buff_size; ++isamp){
             int i_acc = 0;
             int q_acc = 0;
+
             for(i = 0; i < MAX_CHAN_SIM; ++i){
                 if(chan[i].prn_num > 0){
-                    iTable %= 512;
-                    ip = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * cosTable512[iTable];
-                    qp = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * sinTable512[iTable];
+                    chan[i].iTable %= 512;
+                    ip = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * cosTable512[chan[i].iTable];
+                    qp = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * sinTable512[chan[i].iTable];
 
                     i_acc += ip;
                     q_acc += qp;
 
-                    ++iTable;
+                    ++chan[i].iTable;
                     ////////////////////////////////////////////////////////////
                     // PRN码，NH码，导航信息 处理
                     ////////////////////////////////////////////////////////////
@@ -486,29 +492,34 @@ void *beidou_task(void *arg){
                 }
             }
             // Scaled by 2^7
-            i_acc = (i_acc+64)>>7;
-            q_acc = (q_acc+64)>>7;
+            //i_acc = (i_acc+64)>>7;
+            //q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
-            iq_buff[isamp*2] = (short)i_acc;
-            iq_buff[isamp*2+1] = (short)q_acc;
+            iq_buff[isamp*2] = i_acc;
+            iq_buff[isamp*2+1] = q_acc;
         }
+        for(int j = 0; j < 100; ++j)
+            printf("%d,", iq_buff[j]);
+       putchar('\n');
+
+
         ////////////////////////////////////////////////////////////
         // 写入发射缓存
         ///////////////////////////////////////////////////////////
 
         if(!s->beidou.ready){
-            printf("北斗信号生成完毕!\n");
+            printf("Bei Dou signal is ready.\n");
             s->beidou.ready = 1;
             pthread_cond_signal(&(s->beidou.initialization_done));
         }
+
 
         // 等待FIFO缓存
         pthread_mutex_lock(&(s->beidou.lock));
         while (!is_fifo_write_ready(s))
             pthread_cond_wait(&(s->fifo_write_ready), &(s->beidou.lock));
         pthread_mutex_unlock(&(s->beidou.lock));
-
         // 向FIFO缓存写入
         memcpy(&(s->fifo[s->head * 2]), iq_buff, NUM_IQ_SAMPLES * 2 * sizeof(short));
 
@@ -516,6 +527,11 @@ void *beidou_task(void *arg){
         if (s->head >= FIFO_LENGTH)
             s->head -= FIFO_LENGTH;
         pthread_cond_signal(&(s->fifo_read_ready));
+        // 分配发射信道
+        allocate_channel(chan, eph[0][0], ionoutc, bdt);
+        timer +=0.1;
+        printf("\rTime into run = %4.1f\n", timer);
+        fflush(stdout);
     }
     s->finished = true;
     free(iq_buff);
