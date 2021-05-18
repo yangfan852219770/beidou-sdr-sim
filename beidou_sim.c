@@ -309,8 +309,8 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
      * week 10 bits
      * mask 12 bits, 每位都为1，取second的后12位
      */
-    unsigned long second = 0x69780;
-    unsigned long week = 0x30E;
+    unsigned long second = 0x69780UL;
+    unsigned long week = 0x30EUL;
     //TODO 暂定为一天内的秒数
     unsigned long toc = 0UL;
     // TODO TGD1 暂存整数，82, 存补码形式
@@ -330,7 +330,7 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
      * FraId(3bit)，子帧计数，第一帧为 1
      * SOW(前8bit)，周内秒计数
      */
-    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | second >> 12;
+    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
     /**
      * 第二个字
      * SOW | SatH1 | AODC | URAI
@@ -354,13 +354,13 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
      * TGD1(10bit) 星上设备时延差
      * TGD2(前4bit) 星上设备时延差
      */
-    sbf[0][3] = (toc & 0xFF) << 22 | TGD1 << 12 | TGD2 >> 6;
+    sbf[0][3] = (toc & 0xFF) << 22 | TGD1 << 12 | (TGD2 >> 6) << 8;
     /**
      * 第五个字
      * TGD2 | a0 | a1
      * TGD2(后6bit) 星上设备时延差
      */
-    sbf[0][4] = (TGD2 & 0x3FUL) << 24 | 0UL << 8;
+    sbf[0][4] = (TGD2 & 0x3FUL) << 24;
     /**
      * 第六个字
      */
