@@ -38,6 +38,8 @@
 // NH码长度
 #define NH_CODE_LEN (20)
 
+#define R2D 57.2957795131
+
 // UTC 时间
 typedef struct{
     int year;
@@ -77,6 +79,13 @@ typedef struct
     int prn_num; // 卫星编号
     int prn_code[PRN_SEQ_LEN]; // prn码
     int prn_code_phase;
+
+    double f_carr;	/*< Carrier frequency */
+    double f_code;	/*< Code frequency */
+    unsigned int carr_phase; /*< Carrier phase */
+    int carr_phasestep;	/*< Carrier phasestep */
+    double code_phase; /*< Code phase */
+
     int prn_code_bit;
     beidou_time bd_t0; // 北斗时间
     /**

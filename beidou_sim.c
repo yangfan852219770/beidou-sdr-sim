@@ -77,6 +77,13 @@ int cosTable512[] = {
         245, 246, 247, 247, 248, 248, 248, 249, 249, 249, 249, 250, 250, 250, 250, 250
 };
 
+double ant_pat_db[37] = {
+        0.00,  0.00,  0.22,  0.44,  0.67,  1.11,  1.56,  2.00,  2.44,  2.89,  3.56,  4.22,
+        4.89,  5.56,  6.22,  6.89,  7.56,  8.22,  8.89,  9.78, 10.67, 11.56, 12.44, 13.33,
+        14.44, 15.56, 16.67, 17.78, 18.89, 20.00, 21.33, 22.67, 24.00, 25.56, 27.33, 29.33,
+        31.56
+};
+
 // 生成测距码
 void prn_code_gen(int *prn_code, int prn_number)
 {
@@ -431,6 +438,10 @@ void init(beidou_channel *chan){
     chan->iNH_code = 1;
     chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;
     chan->iTable = 0;
+
+    // TODO 暂时为静态
+    chan->f_carr = -3324.12;
+    chan->f_code = 1022997.0;
     return;
 }
 
@@ -457,6 +468,9 @@ void *beidou_task(void *arg){
 
     int i, j;
 
+    // 采样周期
+    double delt;
+
     double timer = 0;
     iTable = 0;
 
@@ -467,6 +481,7 @@ void *beidou_task(void *arg){
         printf("ERROR: 分配 I/Q buff失败.\n");
         goto exit;
     }
+    delt = 1.0/(double)TX_SAMPLERATE;
 
     ////////////////////////////////////////////////////////////
     // 初始化发送信道
@@ -488,8 +503,9 @@ void *beidou_task(void *arg){
 
         //初始化信道数据
         for( i = 0; i < MAX_CHAN_SIM; ++i){
-            if(chan[i].prn_num > 0)
+            if(chan[i].prn_num > 0){
                 init(&chan[i]);
+            }
         }
 
         // 生成发射数据
@@ -499,51 +515,31 @@ void *beidou_task(void *arg){
 
             for(i = 0; i < MAX_CHAN_SIM; ++i){
                 if(chan[i].prn_num > 0){
-                    chan[i].iTable %= 512;
-                    ip = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * cosTable512[chan[i].iTable];
-                    qp = chan[i].data_bit * chan[i].prn_code_bit * chan[i].NH_code_bit * sinTable512[chan[i].iTable];
+                    iTable = (chan[i].carr_phase >> 16) & 511;
+
+                    ip = chan[i].prn_code_bit * cosTable512[iTable];
+                    qp = chan[i].prn_code_bit * sinTable512[iTable];
 
                     i_acc += ip;
                     q_acc += qp;
 
-                    ++chan[i].iTable;
                     ////////////////////////////////////////////////////////////
                     // PRN码，NH码，导航信息 处理
                     ////////////////////////////////////////////////////////////
-                    // PRN码
-                    ++chan[i].prn_code_phase;
-                    if(chan[i].prn_code_phase == PRN_SEQ_LEN){
-                        chan[i].prn_code_phase = 0;
+                    // 更新PRN码相位
+                    chan[i].code_phase += chan[i].f_code * delt;
 
-                        // 处理NH码位，2046bits PRN码对应 1bit NH码
-                        ++chan[i].iNH_code;
-                        // NH码数据处理
-                        chan[i].NH_code_bit = (int)((chan[i].NH_code >> (NH_CODE_LEN - chan[i].iNH_code)) & 0x1UL ) *2 - 1;
-                        // 处理导航信息位, 20bits NH码对应1bit导航信息
-                        if(chan[i].iNH_code == NH_CODE_LEN){
-
-                            chan[i].iNH_code  = 0;
-                            ++chan[i].ibit;
-                            // 处理导航数据
-                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword % WORD_NUM][chan[i].ibit % WORD_LEN ] *2 -1;
-                            // 30bits 等于1word
-                            if(chan[i].ibit  == WORD_LEN){
-                                chan[i].ibit = 0;
-                                ++chan[i].iword;
-                                // TODO 10word 等于1帧
-                                if(chan[i].iword == WORD_NUM){
-                                    chan[i].iword = 0;
-                                }
-                            }
-                        }
+                    if(chan[i].code_phase >= PRN_SEQ_LEN){
+                        chan[i].code_phase -= PRN_SEQ_LEN;
                     }
                     // PRN数据处理
-                    chan[i].prn_code_bit = chan[i].prn_code[chan[i].prn_code_phase] *2 -1;
+                    chan[i].prn_code_bit = chan[i].prn_code[chan[i].code_phase] *2 -1;
+                    chan[i].carr_phase += chan[i].carr_phasestep;
                 }
             }
             // Scaled by 2^7
-            //i_acc = (i_acc+64)>>7;
-            //q_acc = (q_acc+64)>>7;
+            i_acc = (i_acc+64)>>7;
+            q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
             iq_buff[isamp*2] = i_acc;
