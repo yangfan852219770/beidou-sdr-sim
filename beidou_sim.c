@@ -391,8 +391,8 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
-    // 目前只模仿prn号为6、7、8、9的卫星
-    int start = 6, end = 9;
+    // 目前只模仿prn号为1-5的卫星
+    int start = 1, end = 5;
     int j = 0;
     for(int i = start; i <= end; ++i){
         chan[j].prn_num = i;
@@ -402,6 +402,7 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
         eph2sbf(eph, ionoutc, chan[j].subframe);
         // 生成导航数据
         nav_msg_gen(bdt, &chan[j], 1);
+        chan[j].carr_phase = (unsigned int)25050620;
         ++j;
     }
     return j;
@@ -427,8 +428,6 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 }
 
 void init(beidou_channel *chan){
-    chan->prn_code_phase = 0;
-    chan->prn_code_bit = chan->prn_code[chan->prn_code_phase] *2 - 1;
     chan->data_bit = chan->subframe_word_bits[0][0] *2  - 1;
     chan->ibit = 0;
     chan->iword = 0;
@@ -437,11 +436,13 @@ void init(beidou_channel *chan){
     // 从高位开始为第一位
     chan->iNH_code = 1;
     chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;
-    chan->iTable = 0;
 
     // TODO 暂时为静态
-    chan->f_carr = -3324.12;
-    chan->f_code = 1022997.0;
+    chan->f_carr = 108.158;
+    chan->f_code = 2046000.14;
+    chan->code_phase = 10.34;
+
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
     return;
 }
 
@@ -505,6 +506,7 @@ void *beidou_task(void *arg){
         for( i = 0; i < MAX_CHAN_SIM; ++i){
             if(chan[i].prn_num > 0){
                 init(&chan[i]);
+                chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
             }
         }
 
@@ -533,23 +535,15 @@ void *beidou_task(void *arg){
                         chan[i].code_phase -= PRN_SEQ_LEN;
                     }
                     // PRN数据处理
-                    chan[i].prn_code_bit = chan[i].prn_code[chan[i].code_phase] *2 -1;
+                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] *2 -1;
                     chan[i].carr_phase += chan[i].carr_phasestep;
                 }
             }
-            // Scaled by 2^7
-            i_acc = (i_acc+64)>>7;
-            q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
             iq_buff[isamp*2] = i_acc;
             iq_buff[isamp*2+1] = q_acc;
         }
-        for(int j = 0; j < 100; ++j)
-            printf("%d,", iq_buff[j]);
-       putchar('\n');
-
-
         ////////////////////////////////////////////////////////////
         // 写入发射缓存
         ///////////////////////////////////////////////////////////

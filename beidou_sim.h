@@ -34,7 +34,7 @@
 // 载波频率转PRN速率
 #define CARR_TO_PRN (1.0/763.0)
 // 模拟的通道数量
-#define MAX_CHAN_SIM (4)
+#define MAX_CHAN_SIM (5)
 // NH码长度
 #define NH_CODE_LEN (20)
 
@@ -78,7 +78,6 @@ typedef struct
 {
     int prn_num; // 卫星编号
     int prn_code[PRN_SEQ_LEN]; // prn码
-    int prn_code_phase;
 
     double f_carr;	/*< Carrier frequency */
     double f_code;	/*< Code frequency */
@@ -110,7 +109,6 @@ typedef struct
     int NH_code_bit;
     // 第几位NH码
     int iNH_code;
-    int iTable;
 } beidou_channel;
 
 /** Generate PRN code
