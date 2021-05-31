@@ -84,6 +84,7 @@ typedef struct
     unsigned int carr_phase; /*< Carrier phase */
     int carr_phasestep;	/*< Carrier phasestep */
     double code_phase; /*< Code phase */
+    int icode;	/*!< initial code */
 
     int prn_code_bit;
     beidou_time bd_t0; // 北斗时间

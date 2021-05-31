@@ -443,6 +443,8 @@ void init(beidou_channel *chan){
     chan->code_phase = 10.34;
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
+    chan->data_bit = chan->subframe_word_bits[0][0] *2  - 1;
+    chan->icode = 0;
     return;
 }
 
@@ -519,8 +521,8 @@ void *beidou_task(void *arg){
                 if(chan[i].prn_num > 0){
                     iTable = (chan[i].carr_phase >> 16) & 511;
 
-                    ip = chan[i].prn_code_bit * cosTable512[iTable];
-                    qp = chan[i].prn_code_bit * sinTable512[iTable];
+                    ip = chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable];
+                    qp = chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable];
 
                     i_acc += ip;
                     q_acc += qp;
@@ -533,6 +535,23 @@ void *beidou_task(void *arg){
 
                     if(chan[i].code_phase >= PRN_SEQ_LEN){
                         chan[i].code_phase -= PRN_SEQ_LEN;
+                        ++chan[i].icode;
+                        // 2 prn_code = 1 nav bit
+                        if(chan[i].icode >= 2){
+                            chan[i].icode = 0;
+                            ++chan[i].ibit;
+                            // 30bits 等于1word
+                            if(chan[i].ibit  >= WORD_LEN){
+                                chan[i].ibit = 0;
+                                ++chan[i].iword;
+                                // TODO 10word 等于1帧
+                                if(chan[i].iword >= WORD_NUM){
+                                    chan[i].iword = 0;
+                                }
+                            }
+                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword % WORD_NUM][chan[i].ibit % WORD_LEN ] *2 -1;
+                        }
+
                     }
                     // PRN数据处理
                     chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] *2 -1;
@@ -570,8 +589,6 @@ void *beidou_task(void *arg){
         // 分配发射信道
         allocate_channel(chan, eph[0][0], ionoutc, bdt);
         timer +=0.1;
-        printf("\rTime into run = %4.1f\n", timer);
-        fflush(stdout);
     }
     s->finished = true;
     free(iq_buff);
