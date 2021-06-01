@@ -145,13 +145,21 @@ void parse_BCH(int *nav_msg, int length);
 void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time);
 
 /**
- * 星历转导航电文子帧
+ * 星历转D1导航电文子帧
  * !!! 目前只模仿第一帧
  * @param eph
  * @param ion
  * @param sbf
  */
-void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]);
+void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]);
+
+/**
+ * 星历转D2导航电文子帧
+ * @param eph
+ * @param ion
+ * @param sbf
+ */
+void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]);
 
 /**
  * 分配信道

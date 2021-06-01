@@ -302,7 +302,7 @@ void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time){
     return;
 }
 
-void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]){
+void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]){
 
     //TODO 目前只模仿第一帧
 
@@ -379,15 +379,102 @@ void eph2sbf(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_
     /**
       * 第八个字
       */
-    sbf[0][6] = 0UL;
+    sbf[0][7] = 0UL;
     /**
       * 第九个字
       */
-    sbf[0][6] = 0UL;
+    sbf[0][8] = 0UL;
     /**
       * 第十个字
       */
-    sbf[0][6] = 0UL;
+    sbf[0][9] = 0UL;
+}
+
+void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]){
+
+    //TODO 目前只模仿第一帧
+
+    // 帧同步码
+    unsigned long pre = 0x712UL;
+    // 保留字段
+    unsigned long rev = 0UL;
+    /**
+     * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
+     * second 19 bits
+     * week 10 bits
+     * mask 12 bits, 每位都为1，取second的后12位
+     */
+    unsigned long second = 0x69780UL;
+    unsigned long week = 0x30EUL;
+    //TODO 暂定为一天内的秒数
+    unsigned long toc = 0UL;
+    // TODO TGD1 暂存整数，82, 存补码形式
+    unsigned long TGD1 = 0x82UL;
+    // TODO TGD1 暂存整数，-15, 存补码形式
+    unsigned long TGD2 = 0x3F1UL;
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧
+    ////////////////////////////////////////////////////////////
+
+    /**
+     * 第一个字
+     * Pre | Rev | FraId | SOW(前8bit)
+     * Pre(11bit)，帧同步码，默认为 11100010010
+     * Rev(4bit)，保留字段，未参与计算
+     * FraId(3bit)，子帧计数，第一帧为 1
+     * SOW(前8bit)，周内秒计数
+     */
+    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
+     /** 第二个字
+      * SOW | Pnum1 | SatH1 | AODC
+      * SOW(后12bit)，周内秒计数
+      * Pnum1(4bit), 页面号
+      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
+      * AODC(5bit)，时钟数据龄期，暂定为 27
+      */
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0x1UL << 13 | 0x1BUL << 8;
+     /** 第三个字
+      * URAI | WN | toc
+      * URAI(4bit)，用户距离精度指数，暂定为 2
+      * WN(13bit)，整周计数
+      * toc(前5bit)，时钟时间
+      */
+    sbf[0][2] = 0x2UL << 26 | week << 13 | (toc >> 12) << 8 ;
+    /**
+    * 第四个字
+    * toc | TGD1
+    * toc(后12bit)，时钟时间
+    * TGD1(10bit) 星上设备时延差
+    */
+    sbf[0][3] = (toc & 0xFFF) << 18 | TGD1 << 8;
+    /**
+     * 第五个字
+     * TGD2 | Rev
+     * TGD2(后6bit) 星上设备时延差
+     * Rev 保留字
+     */
+    sbf[0][4] = TGD2 << 20;
+    /**
+     * 第六个字
+     */
+    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;;
+    /**
+     * 第七个字
+     */
+    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
+    /**
+      * 第八个字
+      */
+    sbf[0][7] = 0UL;
+    /**
+      * 第九个字
+      */
+    sbf[0][8] = 0UL;
+    /**
+      * 第十个字
+      */
+    sbf[0][9] = 0UL;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -399,7 +486,7 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
         // 生成测距码
         prn_code_gen(chan[j].prn_code, i);
         // 从星历生成子帧数据
-        eph2sbf(eph, ionoutc, chan[j].subframe);
+        eph2sbf_D2(eph, ionoutc, chan[j].subframe);
         // 生成导航数据
         nav_msg_gen(bdt, &chan[j], 1);
         chan[j].carr_phase = (unsigned int)25050620;
@@ -428,23 +515,24 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 }
 
 void init(beidou_channel *chan){
-    chan->data_bit = chan->subframe_word_bits[0][0] *2  - 1;
-    chan->ibit = 0;
+
+    // TODO 暂时为静态
+    chan->f_carr = 108.158;
+    chan->f_code = 2046000.14;
+    chan->code_phase = 10.34;
     chan->iword = 0;
+    chan->ibit = 1;
+    chan->icode = 0;
+
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
+    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] *2  - 1;
+
     // 20bits NH码
     chan->NH_code = 0x4D4EUL;
     // 从高位开始为第一位
     chan->iNH_code = 1;
     chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;
 
-    // TODO 暂时为静态
-    chan->f_carr = 108.158;
-    chan->f_code = 2046000.14;
-    chan->code_phase = 10.34;
-
-    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
-    chan->data_bit = chan->subframe_word_bits[0][0] *2  - 1;
-    chan->icode = 0;
     return;
 }
 
