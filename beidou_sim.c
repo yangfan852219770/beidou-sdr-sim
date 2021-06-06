@@ -173,12 +173,16 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     unsigned long wrd_hex;
     // 一个帧中的第一个字
     if(first_word_flag){
-        wrd_hex = source_word >> 4; // 移除后四位校验位
+        // 移除后四位校验位
+        wrd_hex = source_word >> 4;
         wrd1 = (int *) malloc(sizeof (int) * 15);
         hex2binary(wrd_hex >> 11, wrd1, 15);
+        for(int i = 0; i < 15; ++i)
+            nav_msg1[i] = wrd1[i];
     }
     else{
-        wrd_hex = source_word >> 8; // 移除后八位校验位
+        // 移除后八位校验位
+        wrd_hex = source_word >> 8;
         wrd1 = (int *) malloc(sizeof (int) * 11);
         hex2binary(wrd_hex >> 11, wrd1, 11);
         // 生成前11位的校验位
@@ -189,6 +193,7 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     BCH_code_gen(wrd2, 11, nav_msg2);
     // 合成30位导航电文
     nav_msg_merge(nav_msg1, nav_msg2, nav_msg);
+    free(wrd1);
 }
 
 /**
@@ -220,7 +225,7 @@ void BCH_code_gen(int *n1, int n1_length, int *nav_msg){
     putchar('\n');
     */
 
-    // 将BCH_code与n1合成导航信息
+    // 将BCH_code与n1合成导航信息,第3位为纠错码的第一位
     for(i = 0; i < n1_length; ++i)
         nav_msg[i] = n1[i];
     for(j = BCH_CORRECT_CODE_LEN - 1 ; j >=0; --j)
@@ -371,23 +376,23 @@ void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     /**
      * 第六个字
      */
-    sbf[0][5] = 0UL;
+    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
      /**
       * 第七个字
       */
-    sbf[0][6] = 0UL;
+    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
     /**
       * 第八个字
       */
-    sbf[0][7] = 0UL;
+    sbf[0][7] = week << 17 | toc << 8;
     /**
       * 第九个字
       */
-    sbf[0][8] = 0UL;
+    sbf[0][8] = (toc & 0xFF) << 22 | TGD1 << 12 | (TGD2 >> 6) << 8;
     /**
       * 第十个字
       */
-    sbf[0][9] = 0UL;
+    sbf[0][9] = (TGD2 & 0x3FUL) << 24;
 }
 
 void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]){
@@ -458,23 +463,23 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     /**
      * 第六个字
      */
-    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;;
+    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
     /**
      * 第七个字
      */
-    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
+    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0x1UL << 13 | 0x1BUL << 8;
     /**
       * 第八个字
       */
-    sbf[0][7] = 0UL;
+    sbf[0][7] = 0x2UL << 26 | week << 13 | (toc >> 12) << 8 ;
     /**
       * 第九个字
       */
-    sbf[0][8] = 0UL;
+    sbf[0][8] = (toc & 0xFFF) << 18 | TGD1 << 8;
     /**
       * 第十个字
       */
-    sbf[0][9] = 0UL;
+    sbf[0][9] = TGD2 << 20;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -496,14 +501,7 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
 }
 
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
-    // 目前只生成第一帧
-    /* 处理所有帧
-    for(int i = 0; i < SUBFRAME_NUM; ++i){
-        for(int j = 0; j < WORD_NUM; ++j){
 
-        }
-
-    }*/
     // 第一帧第一个字单独处理
     nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
     // 处理剩余的字
@@ -520,9 +518,10 @@ void init(beidou_channel *chan){
     chan->f_carr = 108.158;
     chan->f_code = 2046000.14;
     chan->code_phase = 10.34;
-    chan->iword = 0;
-    chan->ibit = 1;
-    chan->icode = 0;
+
+    chan->iword = 7;
+    chan->ibit = 27;
+    chan->icode = 1;
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] *2  - 1;
@@ -554,7 +553,7 @@ void *beidou_task(void *arg){
     // TODO ionoutc目前不用
     ionoutc_t ionoutc;
     // 模拟信号的时间，模拟300s
-    int duration = 3000;
+    int duration = 30000;
     int idura;
 
     int i, j;
@@ -628,8 +627,8 @@ void *beidou_task(void *arg){
                         if(chan[i].icode >= 2){
                             chan[i].icode = 0;
                             ++chan[i].ibit;
-                            // 30bits 等于1word
-                            if(chan[i].ibit  >= WORD_LEN){
+                            // 30 bits = 1 word
+                            if(chan[i].ibit >= WORD_LEN){
                                 chan[i].ibit = 0;
                                 ++chan[i].iword;
                                 // TODO 10word 等于1帧
