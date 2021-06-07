@@ -169,14 +169,15 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     int nav_msg1[WORD_LEN/2], nav_msg2[WORD_LEN/2];
     // 11位掩码
     unsigned long mask_11 = 0x7FF;
-    // 除去一个字中BCH校验位
     unsigned long wrd_hex;
+
     // 一个帧中的第一个字
     if(first_word_flag){
         // 移除后四位校验位
         wrd_hex = source_word >> 4;
         wrd1 = (int *) malloc(sizeof (int) * 15);
         hex2binary(wrd_hex >> 11, wrd1, 15);
+        // 导航数据
         for(int i = 0; i < 15; ++i)
             nav_msg1[i] = wrd1[i];
     }
@@ -191,8 +192,18 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     // 处理后11位
     hex2binary((wrd_hex & mask_11), wrd2, 11);
     BCH_code_gen(wrd2, 11, nav_msg2);
+
     // 合成30位导航电文
-    nav_msg_merge(nav_msg1, nav_msg2, nav_msg);
+    // 第一个字不做交织编码
+    if(first_word_flag){
+        for(int i = 0; i < 15; ++i){
+            nav_msg[i] = nav_msg1[i];
+            nav_msg[i+15] = nav_msg2[i];
+        }
+    }
+    else
+        nav_msg_merge(nav_msg1, nav_msg2, nav_msg);
+
     free(wrd1);
 }
 
@@ -400,23 +411,23 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     //TODO 目前只模仿第一帧
 
     // 帧同步码
-    unsigned long pre = 0x712UL;
+    unsigned long pre = 0x712;
     // 保留字段
-    unsigned long rev = 0UL;
+    unsigned long rev = 0;
     /**
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * second 19 bits
      * week 10 bits
      * mask 12 bits, 每位都为1，取second的后12位
      */
-    unsigned long second = 0x69780UL;
-    unsigned long week = 0x30EUL;
+    unsigned long second = 0x69780;
+    unsigned long week = 0x30E;
     //TODO 暂定为一天内的秒数
-    unsigned long toc = 0UL;
+    unsigned long toc = 0;
     // TODO TGD1 暂存整数，82, 存补码形式
-    unsigned long TGD1 = 0x82UL;
+    unsigned long TGD1 = 0x82;
     // TODO TGD1 暂存整数，-15, 存补码形式
-    unsigned long TGD2 = 0x3F1UL;
+    unsigned long TGD2 = 0x3F1;
 
     ////////////////////////////////////////////////////////////
     // 第一帧
@@ -506,9 +517,9 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
     // 处理剩余的字
     int start = 1;
-    for(int i = start; i < WORD_NUM; ++i){
+    for(int i = start; i < WORD_NUM; ++i)
         nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
-    }
+
 
 }
 
@@ -636,7 +647,7 @@ void *beidou_task(void *arg){
                                     chan[i].iword = 0;
                                 }
                             }
-                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword % WORD_NUM][chan[i].ibit % WORD_LEN ] *2 -1;
+                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] *2 -1;
                         }
 
                     }
