@@ -470,7 +470,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * TGD2(后6bit) 星上设备时延差
      * Rev 保留字
      */
-    sbf[0][4] = TGD2 << 20;
+    sbf[0][4] = TGD2 << 20 | 0UL< 8;
     /**
      * 第六个字
      */
@@ -490,7 +490,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     /**
       * 第十个字
       */
-    sbf[0][9] = TGD2 << 20;
+    sbf[0][9] = TGD2 << 20| 0UL<< 8;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -519,8 +519,6 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     int start = 1;
     for(int i = start; i < WORD_NUM; ++i)
         nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
-
-
 }
 
 void init(beidou_channel *chan){
@@ -531,8 +529,8 @@ void init(beidou_channel *chan){
     chan->code_phase = 10.34;
 
     chan->iword = 7;
-    chan->ibit = 27;
-    chan->icode = 1;
+    chan->ibit = 26;
+    chan->icode = 14;
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] *2  - 1;
@@ -540,8 +538,8 @@ void init(beidou_channel *chan){
     // 20bits NH码
     chan->NH_code = 0x4D4EUL;
     // 从高位开始为第一位
-    chan->iNH_code = 1;
-    chan->NH_code_bit = (int)((chan->NH_code >> (NH_CODE_LEN - chan->iNH_code)) & 0x1UL) *2 - 1;
+    chan->iNH_code = chan->icode;
+    chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL) *2 - 1;
 
     return;
 }
@@ -599,16 +597,16 @@ void *beidou_task(void *arg){
     // 生成基带信号
     ////////////////////////////////////////////////////////////
 
+    //初始化信道数据
+    for( i = 0; i < MAX_CHAN_SIM; ++i){
+        if(chan[i].prn_num > 0){
+            init(&chan[i]);
+            chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
+        }
+    }
+
     for(idura = 1; idura < duration; ++idura){
         //TODO 天线增益、路径损失
-
-        //初始化信道数据
-        for( i = 0; i < MAX_CHAN_SIM; ++i){
-            if(chan[i].prn_num > 0){
-                init(&chan[i]);
-                chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
-            }
-        }
 
         // 生成发射数据
         for(isamp = 0; isamp < iq_buff_size; ++isamp){
@@ -619,8 +617,8 @@ void *beidou_task(void *arg){
                 if(chan[i].prn_num > 0){
                     iTable = (chan[i].carr_phase >> 16) & 511;
 
-                    ip = chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable];
-                    qp = chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable];
+                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
+                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
 
                     i_acc += ip;
                     q_acc += qp;
@@ -656,6 +654,9 @@ void *beidou_task(void *arg){
                     chan[i].carr_phase += chan[i].carr_phasestep;
                 }
             }
+            // Scaled by 2^7
+            //i_acc = (i_acc+64)>>7;
+            //q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
             iq_buff[isamp*2] = i_acc;
