@@ -171,11 +171,12 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     unsigned long mask_11 = 0x7FF;
     unsigned long wrd_hex;
 
-    // 一个帧中的第一个字
+    // 一个帧中的第一个字，第一个字的前15bits不做校验
     if(first_word_flag){
         // 移除后四位校验位
         wrd_hex = source_word >> 4;
         wrd1 = (int *) malloc(sizeof (int) * 15);
+        // 转化为二进制形式
         hex2binary(wrd_hex >> 11, wrd1, 15);
         // 导航数据
         for(int i = 0; i < 15; ++i)
@@ -185,6 +186,7 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
         // 移除后八位校验位
         wrd_hex = source_word >> 8;
         wrd1 = (int *) malloc(sizeof (int) * 11);
+        // 转化为二进制形式
         hex2binary(wrd_hex >> 11, wrd1, 11);
         // 生成前11位的校验位
         BCH_code_gen(wrd1, 11, nav_msg1);
@@ -239,7 +241,8 @@ void BCH_code_gen(int *n1, int n1_length, int *nav_msg){
     // 将BCH_code与n1合成导航信息,第3位为纠错码的第一位
     for(i = 0; i < n1_length; ++i)
         nav_msg[i] = n1[i];
-    for(j = BCH_CORRECT_CODE_LEN - 1 ; j >=0; --j)
+
+    for( j = 0; j < BCH_CORRECT_CODE_LEN; ++j)
         nav_msg[i++] = BCH_code[j];
     return;
 }
@@ -362,7 +365,7 @@ void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * AODC(5bit)，时钟数据龄期，暂定为 27
      * URAI(4bit)，用户距离精度指数，暂定为 2
      */
-    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0 << 17 | 0x1BUL << 12 | 0x2UL << 8;
     /**
      * 第三个字
      * WN | toc
@@ -412,22 +415,20 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
 
     // 帧同步码
     unsigned long pre = 0x712;
-    // 保留字段
-    unsigned long rev = 0;
+
     /**
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * second 19 bits
      * week 10 bits
-     * mask 12 bits, 每位都为1，取second的后12位
      */
-    unsigned long second = 0x69780;
-    unsigned long week = 0x30E;
+    unsigned long second = 0x69780UL;
+    unsigned long week = 0x30EUL;
     //TODO 暂定为一天内的秒数
     unsigned long toc = 0;
     // TODO TGD1 暂存整数，82, 存补码形式
-    unsigned long TGD1 = 0x82;
+    unsigned long TGD1 = 0x52UL;
     // TODO TGD1 暂存整数，-15, 存补码形式
-    unsigned long TGD2 = 0x3F1;
+    unsigned long TGD2 = 0x3F1UL;
 
     ////////////////////////////////////////////////////////////
     // 第一帧
@@ -441,15 +442,15 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * FraId(3bit)，子帧计数，第一帧为 1
      * SOW(前8bit)，周内秒计数
      */
-    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[0][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
      /** 第二个字
       * SOW | Pnum1 | SatH1 | AODC
       * SOW(后12bit)，周内秒计数
       * Pnum1(4bit), 页面号
       * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
-      * AODC(5bit)，时钟数据龄期，暂定为 27
+      * AODC(5bit)，时钟数据龄期，暂定为 24
       */
-    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0x1UL << 13 | 0x1BUL << 8;
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0 << 13 | 0x18UL << 8;
      /** 第三个字
       * URAI | WN | toc
       * URAI(4bit)，用户距离精度指数，暂定为 2
@@ -470,27 +471,27 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * TGD2(后6bit) 星上设备时延差
      * Rev 保留字
      */
-    sbf[0][4] = TGD2 << 20 | 0UL< 8;
+    sbf[0][4] = TGD2 << 20 | 0< 8;
     /**
      * 第六个字
      */
-    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
     /**
      * 第七个字
      */
-    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0x1UL << 13 | 0x1BUL << 8;
+    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
     /**
       * 第八个字
       */
-    sbf[0][7] = 0x2UL << 26 | week << 13 | (toc >> 12) << 8 ;
+     sbf[0][7] = 0;
     /**
       * 第九个字
       */
-    sbf[0][8] = (toc & 0xFFF) << 18 | TGD1 << 8;
+    sbf[0][8] = 0;
     /**
       * 第十个字
       */
-    sbf[0][9] = TGD2 << 20| 0UL<< 8;
+    sbf[0][9] = 0;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -515,10 +516,13 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
     // 第一帧第一个字单独处理
     nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
+    nav_word_gen(chan->subframe[0][5], true, chan->subframe_word_bits[5]);
+
     // 处理剩余的字
     int start = 1;
     for(int i = start; i < WORD_NUM; ++i)
-        nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+        if(5 != i)
+            nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
 }
 
 void init(beidou_channel *chan){
@@ -530,16 +534,17 @@ void init(beidou_channel *chan){
 
     chan->iword = 7;
     chan->ibit = 26;
-    chan->icode = 14;
 
-    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase]*2-1;
-    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] *2  - 1;
+    chan->icode = 0;
+
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
+    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
 
     // 20bits NH码
     chan->NH_code = 0x4D4EUL;
     // 从高位开始为第一位
     chan->iNH_code = chan->icode;
-    chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL) *2 - 1;
+    chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL) * 2 - 1;
 
     return;
 }
@@ -570,6 +575,7 @@ void *beidou_task(void *arg){
     // 采样周期
     double delt;
 
+    int gain[MAX_CHAN_SIM];
     double timer = 0;
     iTable = 0;
 
@@ -602,6 +608,7 @@ void *beidou_task(void *arg){
         if(chan[i].prn_num > 0){
             init(&chan[i]);
             chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
+            gain[i] = 64 + (i + 1) * 8;
         }
     }
 
@@ -617,8 +624,8 @@ void *beidou_task(void *arg){
                 if(chan[i].prn_num > 0){
                     iTable = (chan[i].carr_phase >> 16) & 511;
 
-                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
-                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
+                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable];
+                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable];
 
                     i_acc += ip;
                     q_acc += qp;
@@ -639,23 +646,27 @@ void *beidou_task(void *arg){
                             // 30 bits = 1 word
                             if(chan[i].ibit >= WORD_LEN){
                                 chan[i].ibit = 0;
+                                //
+                                printf("%d\n",chan[i].iword);
+
                                 ++chan[i].iword;
+
                                 // TODO 10word 等于1帧
                                 if(chan[i].iword >= WORD_NUM){
                                     chan[i].iword = 0;
                                 }
                             }
-                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] *2 -1;
+                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] * 2 -1;
                         }
 
                     }
                     // PRN数据处理
-                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] *2 -1;
+                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] * 2 -1;
                     chan[i].carr_phase += chan[i].carr_phasestep;
                 }
             }
             // Scaled by 2^7
-            //i_acc = (i_acc+64)>>7;
+           // i_acc = (i_acc+64)>>7;
             //q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
