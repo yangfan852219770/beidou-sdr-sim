@@ -238,11 +238,11 @@ void BCH_code_gen(int *n1, int n1_length, int *nav_msg){
     putchar('\n');
     */
 
-    // 将BCH_code与n1合成导航信息,第3位为纠错码的第一位
     for(i = 0; i < n1_length; ++i)
         nav_msg[i] = n1[i];
 
-    for( j = 0; j < BCH_CORRECT_CODE_LEN; ++j)
+    // 将BCH_code与n1合成导航信息,第3位为纠错码的第一位
+    for( j = BCH_CORRECT_CODE_LEN - 1; j >=0; --j)
         nav_msg[i++] = BCH_code[j];
     return;
 }
@@ -418,13 +418,12 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
 
     /**
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
-     * second 19 bits
      * week 10 bits
      */
-    unsigned long second = 0x69780UL;
-    unsigned long week = 0x30EUL;
+    unsigned long second = 0x9780;
+    unsigned long week = 0x20E;
     //TODO 暂定为一天内的秒数
-    unsigned long toc = 0;
+    unsigned long toc = 0x15;
     // TODO TGD1 暂存整数，82, 存补码形式
     unsigned long TGD1 = 0x52UL;
     // TODO TGD1 暂存整数，-15, 存补码形式
