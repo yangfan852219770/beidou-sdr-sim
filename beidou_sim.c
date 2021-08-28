@@ -171,7 +171,7 @@ void nav_word_gen(unsigned long source_word, bool first_word_flag, int *nav_msg)
     unsigned long mask_11 = 0x7FF;
     unsigned long wrd_hex;
 
-    // 一个帧中的第一个字，第一个字的前15bits不做校验
+    // 一个帧中的第一个字，第一个字的前15bits不做校验，只对后11bits做校验
     if(first_word_flag){
         // 移除后四位校验位
         wrd_hex = source_word >> 4;
@@ -420,14 +420,15 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * week 10 bits
      */
-    unsigned long second = 0x9780;
-    unsigned long week = 0x20E;
+    unsigned long second = 0x69787;
+
+    unsigned long week = 0x30F;
     //TODO 暂定为一天内的秒数
-    unsigned long toc = 0x15;
-    // TODO TGD1 暂存整数，82, 存补码形式
-    unsigned long TGD1 = 0x52UL;
-    // TODO TGD1 暂存整数，-15, 存补码形式
-    unsigned long TGD2 = 0x3F1UL;
+    unsigned long toc = 0;
+    // TODO TGD1 暂存整数，82 0x52, 存补码形式
+    unsigned long TGD1 = 0x52;
+    // TODO TGD1 暂存整数，-15 0x3F1, 存补码形式
+    unsigned long TGD2 = 0x3F1;
 
     ////////////////////////////////////////////////////////////
     // 第一帧
@@ -446,10 +447,10 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
       * SOW | Pnum1 | SatH1 | AODC
       * SOW(后12bit)，周内秒计数
       * Pnum1(4bit), 页面号
-      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
-      * AODC(5bit)，时钟数据龄期，暂定为 24
+      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用p
+      * AODC(5bit)，时钟数据龄期，暂定为 0
       */
-    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0 << 13 | 0x18UL << 8;
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0 << 13 | 0 << 8;
      /** 第三个字
       * URAI | WN | toc
       * URAI(4bit)，用户距离精度指数，暂定为 2
@@ -470,7 +471,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * TGD2(后6bit) 星上设备时延差
      * Rev 保留字
      */
-    sbf[0][4] = TGD2 << 20 | 0< 8;
+    sbf[0][4] = TGD2 << 20 | 0 << 8;
     /**
      * 第六个字
      */
@@ -519,9 +520,12 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
     // 处理剩余的字
     int start = 1;
-    for(int i = start; i < WORD_NUM; ++i)
+    for(int i = start; i < WORD_NUM; ++i){
         if(5 != i)
             nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+    }
+
+    return 0;
 }
 
 void init(beidou_channel *chan){
@@ -569,7 +573,7 @@ void *beidou_task(void *arg){
     int duration = 30000;
     int idura;
 
-    int i, j;
+    int i;
 
     // 采样周期
     double delt;
@@ -645,8 +649,7 @@ void *beidou_task(void *arg){
                             // 30 bits = 1 word
                             if(chan[i].ibit >= WORD_LEN){
                                 chan[i].ibit = 0;
-                                //
-                                printf("%d\n",chan[i].iword);
+                                //printf("%d\n",chan[i].iword);
 
                                 ++chan[i].iword;
 
