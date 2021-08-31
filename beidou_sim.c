@@ -425,8 +425,8 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     unsigned long week = 0x30F;
     //TODO 暂定为一天内的秒数
     unsigned long toc = 0;
-    // TODO TGD1 暂存整数，82 0x52, 存补码形式
-    unsigned long TGD1 = 0x52;
+    // TODO TGD1 暂存整数 0
+    unsigned long TGD1 = 0;
     // TODO TGD1 暂存整数，-15 0x3F1, 存补码形式
     unsigned long TGD2 = 0x3F1;
 
@@ -475,11 +475,11 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     /**
      * 第六个字
      */
-    sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    //sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
     /**
      * 第七个字
      */
-    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
+    //sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
     /**
       * 第八个字
       */
@@ -516,13 +516,12 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
     // 第一帧第一个字单独处理
     nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
-    nav_word_gen(chan->subframe[0][5], true, chan->subframe_word_bits[5]);
+    //nav_word_gen(chan->subframe[0][5], true, chan->subframe_word_bits[5]);
 
     // 处理剩余的字
     int start = 1;
-    for(int i = start; i < WORD_NUM; ++i){
-        if(5 != i)
-            nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+    for(int i = start; i < 5; ++i){
+        nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
     }
 
     return 0;
