@@ -420,15 +420,16 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * week 10 bits
      */
-    unsigned long second = 0x69787;
+    unsigned long second = 0x3F480;
 
-    unsigned long week = 0x30F;
+    unsigned long week = 0x184;
     //TODO 暂定为一天内的秒数
-    unsigned long toc = 0;
+    unsigned long toc = 0x6801;
+
+    // TODO TGD1 补码形式
+    unsigned long TGD1 = 0x348;
     // TODO TGD1 暂存整数 0
-    unsigned long TGD1 = 0;
-    // TODO TGD1 暂存整数，-15 0x3F1, 存补码形式
-    unsigned long TGD2 = 0x3F1;
+    unsigned long TGD2 = 0;
 
     ////////////////////////////////////////////////////////////
     // 第一帧
@@ -453,11 +454,11 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0 << 13 | 0 << 8;
      /** 第三个字
       * URAI | WN | toc
-      * URAI(4bit)，用户距离精度指数，暂定为 2
+      * URAI(4bit)，用户距离精度指数，暂定为 8
       * WN(13bit)，整周计数
       * toc(前5bit)，时钟时间
       */
-    sbf[0][2] = 0x2UL << 26 | week << 13 | (toc >> 12) << 8 ;
+    sbf[0][2] = 0x8UL << 26 | week << 13 | (toc >> 12) << 8 ;
     /**
     * 第四个字
     * toc | TGD1
@@ -483,15 +484,15 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     /**
       * 第八个字
       */
-     sbf[0][7] = 0;
+    //sbf[0][7] = 0;
     /**
       * 第九个字
       */
-    sbf[0][8] = 0;
+    //sbf[0][8] = 0;
     /**
       * 第十个字
       */
-    sbf[0][9] = 0;
+    //sbf[0][9] = 0;
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -530,12 +531,16 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 void init(beidou_channel *chan){
 
     // TODO 暂时为静态
+
     chan->f_carr = 108.158;
     chan->f_code = 2046000.14;
     chan->code_phase = 10.34;
 
-    chan->iword = 7;
-    chan->ibit = 26;
+    //chan->iword = 7;
+    //chan->ibit = 26;
+
+    chan->iword = 0;
+    chan->ibit = 0;
 
     chan->icode = 0;
 
@@ -610,7 +615,7 @@ void *beidou_task(void *arg){
         if(chan[i].prn_num > 0){
             init(&chan[i]);
             chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
-            gain[i] = 64 + (i + 1) * 8;
+            gain[i] = 64;
         }
     }
 
@@ -626,8 +631,8 @@ void *beidou_task(void *arg){
                 if(chan[i].prn_num > 0){
                     iTable = (chan[i].carr_phase >> 16) & 511;
 
-                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable];
-                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable];
+                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
+                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
 
                     i_acc += ip;
                     q_acc += qp;
@@ -652,7 +657,7 @@ void *beidou_task(void *arg){
 
                                 ++chan[i].iword;
 
-                                // TODO 10word 等于1帧
+                                // TODO D2 5个word 等于1帧
                                 if(chan[i].iword >= WORD_NUM){
                                     chan[i].iword = 0;
                                 }
@@ -667,12 +672,12 @@ void *beidou_task(void *arg){
                 }
             }
             // Scaled by 2^7
-           // i_acc = (i_acc+64)>>7;
+            //i_acc = (i_acc+64)>>7;
             //q_acc = (q_acc+64)>>7;
 
             // 存储I/Q buff
-            iq_buff[isamp*2] = i_acc;
-            iq_buff[isamp*2+1] = q_acc;
+            iq_buff[isamp*2] = (short)i_acc;
+            iq_buff[isamp*2+1] = (short)q_acc;
         }
         ////////////////////////////////////////////////////////////
         // 写入发射缓存
