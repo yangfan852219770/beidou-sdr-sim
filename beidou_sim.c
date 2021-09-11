@@ -431,8 +431,21 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     // TODO TGD1 暂存整数 0
     unsigned long TGD2 = 0;
 
+    // TODO 静态为无符号整数，动态为有符号
+    unsigned long alpha0,alpha1,alpha2,alpha3;
+    unsigned long beta0,beta1,beta2,beta3;
+
+    alpha0 = 0xD;
+    alpha1 = 0xFF;
+    alpha2 = 0xFE;
+    alpha3 = 0x1;
+    beta0 = 0x30;
+    beta1 = 0xFB;
+    beta2 = 0xFD;
+    beta3 = 0x7;
+
     ////////////////////////////////////////////////////////////
-    // 第一帧
+    // 第一帧 第一字
     ////////////////////////////////////////////////////////////
 
     /**
@@ -473,27 +486,31 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * Rev 保留字
      */
     sbf[0][4] = TGD2 << 20 | 0 << 8;
-    /**
-     * 第六个字
-     */
-    //sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    /**
-     * 第七个字
-     */
-    //sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14;
-    /**
-      * 第八个字
-      */
-    //sbf[0][7] = 0;
-    /**
-      * 第九个字
-      */
-    //sbf[0][8] = 0;
-    /**
-      * 第十个字
-      */
-    //sbf[0][9] = 0;
-}
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第二字
+    ////////////////////////////////////////////////////////////
+    sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+
+    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14 | (alpha0 >> 2) << 8;
+
+    sbf[0][7] = (alpha0 & 0x2UL) << 28 | alpha1 << 20 | alpha2 << 12 | (alpha3 >> 4) << 8;
+
+    sbf[0][8] = (alpha3 & 0x4UL) << 26 | beta0 << 18 | beta1 << 10 | (beta2 >> 6) << 8;
+
+    sbf[0][9] = (beta2 & 0x6UL) << 24 | beta3 << 16;
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第三字
+    ////////////////////////////////////////////////////////////
+    /*
+    sbf[1][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[1][1] = ( second & 0xFFFUL) << 18 | 0x3UL << 14 | 0 << 14;
+    sbf[1][2] = 0 << 8;
+    sbf[1][3] = 0 << 20 | ;
+    sbf[1][4] = ;
+    */
+ }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
     // 目前只模仿prn号为1-5的卫星
@@ -516,19 +533,22 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
     // 第一帧第一个字单独处理
-    nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
+    //nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
     //nav_word_gen(chan->subframe[0][5], true, chan->subframe_word_bits[5]);
 
     // 处理剩余的字
     int start = 1;
-    for(int i = start; i < 5; ++i){
-        nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+    for(int i = start; i < WORD_NUM; ++i){
+        if(i % 5 != 0)
+            nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+        else
+            nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
     }
 
     return 0;
 }
 
-void init(beidou_channel *chan){
+void init(beidou_channel *chan, int prn_number){
 
     // TODO 暂时为静态
 
@@ -536,22 +556,12 @@ void init(beidou_channel *chan){
     chan->f_code = 2046000.14;
     chan->code_phase = 10.34;
 
-    //chan->iword = 7;
-    //chan->ibit = 26;
-
-    chan->iword = 0;
-    chan->ibit = 0;
-
-    chan->icode = 0;
+    chan->iword = 9;
+    chan->ibit = 23;
+    chan->icode = 5;
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
-
-    // 20bits NH码
-    chan->NH_code = 0x4D4EUL;
-    // 从高位开始为第一位
-    chan->iNH_code = chan->icode;
-    chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL) * 2 - 1;
 
     return;
 }
@@ -613,7 +623,7 @@ void *beidou_task(void *arg){
     //初始化信道数据
     for( i = 0; i < MAX_CHAN_SIM; ++i){
         if(chan[i].prn_num > 0){
-            init(&chan[i]);
+            init(&chan[i], chan[i].prn_num);
             chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
             gain[i] = 64;
         }

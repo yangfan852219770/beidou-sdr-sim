@@ -40,6 +40,8 @@
 
 #define R2D 57.2957795131
 
+#define LAMBDA_B1 0.1920394863102765
+
 // UTC 时间
 typedef struct{
     int year;
@@ -91,7 +93,7 @@ typedef struct
     /**
      * TODO 目前只模仿第一个子帧
      */
-    unsigned long subframe[1][WORD_NUM];
+    unsigned long subframe[SUBFRAME_NUM][WORD_NUM];
     // TODO 暂时不用
     unsigned int subfranme_num; // 子帧号
     // TODO 暂时不用
@@ -178,7 +180,7 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
  */
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init);
 
-void init(beidou_channel *chan);
+void init(beidou_channel *chan, int prn_number);
 
 /**
  * 信号模拟
