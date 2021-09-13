@@ -19,7 +19,7 @@
 // 子帧个数
 #define SUBFRAME_NUM (5)
 // 字个数，暂时模仿10个
-#define WORD_NUM (10)
+#define WORD_NUM (10 * 5)
 
 #define SECONDS_IN_WEEK (604800.0)
 #define SECONDS_IN_HALF_WEEK (302400.0)

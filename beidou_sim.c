@@ -420,11 +420,11 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
      * week 10 bits
      */
-    unsigned long second = 0x3F480;
+    unsigned long second = 0x3F482;
 
-    unsigned long week = 0x185;
+    unsigned long week = 0x1A1;
     //TODO 暂定为一天内的秒数
-    unsigned long toc = 0x6801;
+    unsigned long toc = 0;
 
     // TODO TGD1 补码形式
     unsigned long TGD1 = 0x348;
@@ -490,7 +490,6 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     ////////////////////////////////////////////////////////////
     // 第一帧 第二字
     ////////////////////////////////////////////////////////////
-
     sbf[0][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
 
     sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x2UL << 14 | (alpha0 >> 2) << 8;
@@ -504,13 +503,47 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
     ////////////////////////////////////////////////////////////
     // 第一帧 第三字
     ////////////////////////////////////////////////////////////
-    /*
     sbf[1][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
     sbf[1][1] = ( second & 0xFFFUL) << 18 | 0x3UL << 14 | 0 << 14;
     sbf[1][2] = 0 << 8;
-    sbf[1][3] = 0 << 20 | ;
-    sbf[1][4] = ;
-    */
+    //sbf[1][3] = 0 << 20 | ;
+    //sbf[1][4] = ;
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第四字
+    ////////////////////////////////////////////////////////////
+    sbf[1][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[1][6] = ( second & 0xFFFUL) << 18 | 0x4UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第五字
+    ////////////////////////////////////////////////////////////
+    sbf[2][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[2][1] = ( second & 0xFFFUL) << 18 | 0x5UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第六字
+    ////////////////////////////////////////////////////////////
+    sbf[2][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[2][6] = ( second & 0xFFFUL) << 18 | 0x6UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第七字
+    ////////////////////////////////////////////////////////////
+    sbf[3][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[3][1] = ( second & 0xFFFUL) << 18 | 0x7UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第八字
+    ////////////////////////////////////////////////////////////
+    sbf[3][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[3][6] = ( second & 0xFFFUL) << 18 | 0x8UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第九字
+    ////////////////////////////////////////////////////////////
+    sbf[4][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[4][1] = ( second & 0xFFFUL) << 18 | 0x9UL << 1;
+    ////////////////////////////////////////////////////////////
+    // 第一帧 第十字
+    ////////////////////////////////////////////////////////////
+    sbf[4][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    sbf[4][6] = ( second & 0xFFFUL) << 18 | 0xAUL << 1;
  }
 
 int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionoutc, beidou_time bdt){
@@ -526,6 +559,7 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
         // 生成导航数据
         nav_msg_gen(bdt, &chan[j], 1);
         chan[j].carr_phase = (unsigned int)25050620;
+
         ++j;
     }
     return j;
@@ -533,17 +567,23 @@ int allocate_channel(beidou_channel *chan, const ephemeris eph, ionoutc_t ionout
 
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
 
-    // 第一帧第一个字单独处理
-    //nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
-    //nav_word_gen(chan->subframe[0][5], true, chan->subframe_word_bits[5]);
-
     for(int i = 0; i < 5; ++i){
-        if(i % 5 != 0)
-            nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
-        else
-            nav_word_gen(chan->subframe[0][0], true, chan->subframe_word_bits[0]);
+        for(int j = 0; j < 10; ++j){
+            if(j % 5 != 0)
+                nav_word_gen(chan->subframe[i][j], false, chan->subframe_word_bits[(i*5+j)]);
+            else
+                nav_word_gen(chan->subframe[i][j], true, chan->subframe_word_bits[(i*5+j)]);
+        }
     }
 
+    /*
+    for(int i = 0; i < 5; ++i){
+            if(i % 5 != 0)
+                nav_word_gen(chan->subframe[0][i], false, chan->subframe_word_bits[i]);
+            else
+                nav_word_gen(chan->subframe[0][i], true, chan->subframe_word_bits[i]);
+    }
+     */
     return 0;
 }
 
@@ -555,9 +595,10 @@ void init(beidou_channel *chan, int prn_number){
     chan->f_code = 2046000.14;
     chan->code_phase = 10.34;
 
+
     chan->iword = 9;
     chan->ibit = 23;
-    chan->icode = 5;
+    chan->icode = 1;
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
