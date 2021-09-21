@@ -41,24 +41,12 @@ int NH_code[] = {
 
 int main(int argc, char const *argv[])
 {
+    ephemeris eph[EPHEM_ARRAY_SIZE][MAX_SAT];
 
-    /*
-    int a1[11] = {0,0,1,0,0,1,1,1,1,1,1},a2[15];
-    BCH_code_gen(a1, 11, a2);
-    printf("Msg:");
-    for(int i = 0; i < 15; ++i)
-        printf("%d ", a2[i]);
-    putchar('\n');
-    // parse_BCH(a2,15);
+    ionoutc_t ionoutc;
+    int neph,ieph;
+    char navfile[MAX_CHAR] = "2021.1.3.txt";
+    neph = readRinexNavAll(eph, &ionoutc, navfile);
+
     return 0;
-    // 时间转换测试
-     */
-    UTC_time u_time;
-    beidou_time bd_time;
-    u_time.year = 2021, u_time.month = 1, u_time.day = 1;
-    u_time.hour = 0, u_time.minute = 0, u_time.second = 0;
-    UTC2beidou_time(&u_time, &bd_time);
-    printf("周数为:%d,归零次数为:%d, 秒数为:%.2f\n", bd_time.week, bd_time.back0time, bd_time.second);
-
-     return 0;
 }
