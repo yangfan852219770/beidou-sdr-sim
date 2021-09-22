@@ -95,11 +95,11 @@ int allocatedSat[MAX_SAT];
  */
 void subVect(double *y, const double *x1, const double *x2)
 {
-	y[0] = x1[0]-x2[0];
-	y[1] = x1[1]-x2[1];
-	y[2] = x1[2]-x2[2];
+    y[0] = x1[0]-x2[0];
+    y[1] = x1[1]-x2[1];
+    y[2] = x1[2]-x2[2];
 
-	return;
+    return;
 }
 
 /*! \brief Compute Norm of Vector
@@ -108,7 +108,7 @@ void subVect(double *y, const double *x1, const double *x2)
  */
 double normVect(const double *x)
 {
-	return(sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]));
+    return(sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]));
 }
 
 /*! \brief Convert Earth-centered Earth-fixed (ECEF) into Lat/Long/Heighth
@@ -117,52 +117,52 @@ double normVect(const double *x)
  */
 void xyz2llh(const double *xyz, double *llh)
 {
-	double a,eps,e,e2;
-	double x,y,z;
-	double rho2,dz,zdz,nh,slat,n,dz_new;
+    double a,eps,e,e2;
+    double x,y,z;
+    double rho2,dz,zdz,nh,slat,n,dz_new;
 
-	a = WGS84_RADIUS;
-	e = WGS84_ECCENTRICITY;
+    a = WGS84_RADIUS;
+    e = WGS84_ECCENTRICITY;
 
-	eps = 1.0e-3;
-	e2 = e*e;
+    eps = 1.0e-3;
+    e2 = e*e;
 
-	if (normVect(xyz)<eps)
-	{
-		// Invalid ECEF vector
-		llh[0] = 0.0;
-		llh[1] = 0.0;
-		llh[2] = -a;
+    if (normVect(xyz)<eps)
+    {
+        // Invalid ECEF vector
+        llh[0] = 0.0;
+        llh[1] = 0.0;
+        llh[2] = -a;
 
-		return;
-	}
+        return;
+    }
 
-	x = xyz[0];
-	y = xyz[1];
-	z = xyz[2];
+    x = xyz[0];
+    y = xyz[1];
+    z = xyz[2];
 
-	rho2 = x*x + y*y;
-	dz = e2*z;
+    rho2 = x*x + y*y;
+    dz = e2*z;
 
-	while (1)
-	{
-		zdz = z + dz;
-		nh = sqrt(rho2 + zdz*zdz);
-		slat = zdz / nh;
-		n = a / sqrt(1.0-e2*slat*slat);
-		dz_new = n*e2*slat;
+    while (1)
+    {
+        zdz = z + dz;
+        nh = sqrt(rho2 + zdz*zdz);
+        slat = zdz / nh;
+        n = a / sqrt(1.0-e2*slat*slat);
+        dz_new = n*e2*slat;
 
-		if (fabs(dz-dz_new) < eps)
-			break;
+        if (fabs(dz-dz_new) < eps)
+            break;
 
-		dz = dz_new;
-	}
+        dz = dz_new;
+    }
 
-	llh[0] = atan2(zdz, sqrt(rho2));
-	llh[1] = atan2(y, x);
-	llh[2] = nh - n;
+    llh[0] = atan2(zdz, sqrt(rho2));
+    llh[1] = atan2(y, x);
+    llh[2] = nh - n;
 
-	return;
+    return;
 }
 
 /*! \brief Convert Lat/Long/Height into Earth-centered Earth-fixed (ECEF)
@@ -171,36 +171,36 @@ void xyz2llh(const double *xyz, double *llh)
  */
 void llh2xyz(const double *llh, double *xyz)
 {
-	double n;
-	double a;
-	double e;
-	double e2;
-	double clat;
-	double slat;
-	double clon;
-	double slon;
-	double d,nph;
-	double tmp;
+    double n;
+    double a;
+    double e;
+    double e2;
+    double clat;
+    double slat;
+    double clon;
+    double slon;
+    double d,nph;
+    double tmp;
 
-	a = WGS84_RADIUS;
-	e = WGS84_ECCENTRICITY;
-	e2 = e*e;
+    a = WGS84_RADIUS;
+    e = WGS84_ECCENTRICITY;
+    e2 = e*e;
 
-	clat = cos(llh[0]);
-	slat = sin(llh[0]);
-	clon = cos(llh[1]);
-	slon = sin(llh[1]);
-	d = e*slat;
+    clat = cos(llh[0]);
+    slat = sin(llh[0]);
+    clon = cos(llh[1]);
+    slon = sin(llh[1]);
+    d = e*slat;
 
-	n = a/sqrt(1.0-d*d);
-	nph = n + llh[2];
+    n = a/sqrt(1.0-d*d);
+    nph = n + llh[2];
 
-	tmp = nph*clat;
-	xyz[0] = tmp*clon;
-	xyz[1] = tmp*slon;
-	xyz[2] = ((1.0-e2)*n + llh[2])*slat;
+    tmp = nph*clat;
+    xyz[0] = tmp*clon;
+    xyz[1] = tmp*slon;
+    xyz[2] = ((1.0-e2)*n + llh[2])*slat;
 
-	return;
+    return;
 }
 
 /*! \brief Compute the intermediate matrix for LLH to ECEF
@@ -209,25 +209,25 @@ void llh2xyz(const double *llh, double *xyz)
  */
 void ltcmat(const double *llh, double t[3][3])
 {
-	double slat, clat;
-	double slon, clon;
+    double slat, clat;
+    double slon, clon;
 
-	slat = sin(llh[0]);
-	clat = cos(llh[0]);
-	slon = sin(llh[1]);
-	clon = cos(llh[1]);
+    slat = sin(llh[0]);
+    clat = cos(llh[0]);
+    slon = sin(llh[1]);
+    clon = cos(llh[1]);
 
-	t[0][0] = -slat*clon;
-	t[0][1] = -slat*slon;
-	t[0][2] = clat;
-	t[1][0] = -slon;
-	t[1][1] = clon;
-	t[1][2] = 0.0;
-	t[2][0] = clat*clon;
-	t[2][1] = clat*slon;
-	t[2][2] = slat;
+    t[0][0] = -slat*clon;
+    t[0][1] = -slat*slon;
+    t[0][2] = clat;
+    t[1][0] = -slon;
+    t[1][1] = clon;
+    t[1][2] = 0.0;
+    t[2][0] = clat*clon;
+    t[2][1] = clat*slon;
+    t[2][2] = slat;
 
-	return;
+    return;
 }
 
 /*! \brief Convert Earth-centered Earth-Fixed to ?
@@ -237,11 +237,11 @@ void ltcmat(const double *llh, double t[3][3])
  */
 void ecef2neu(const double *xyz, double t[3][3], double *neu)
 {
-	neu[0] = t[0][0]*xyz[0] + t[0][1]*xyz[1] + t[0][2]*xyz[2];
-	neu[1] = t[1][0]*xyz[0] + t[1][1]*xyz[1] + t[1][2]*xyz[2];
-	neu[2] = t[2][0]*xyz[0] + t[2][1]*xyz[1] + t[2][2]*xyz[2];
+    neu[0] = t[0][0]*xyz[0] + t[0][1]*xyz[1] + t[0][2]*xyz[2];
+    neu[1] = t[1][0]*xyz[0] + t[1][1]*xyz[1] + t[1][2]*xyz[2];
+    neu[2] = t[2][0]*xyz[0] + t[2][1]*xyz[1] + t[2][2]*xyz[2];
 
-	return;
+    return;
 }
 
 /*! \brief Convert North-Eeast-Up to Azimuth + Elevation
@@ -250,16 +250,16 @@ void ecef2neu(const double *xyz, double t[3][3], double *neu)
  */
 void neu2azel(double *azel, const double *neu)
 {
-	double ne;
+    double ne;
 
-	azel[0] = atan2(neu[1],neu[0]);
-	if (azel[0]<0.0)
-		azel[0] += (2.0*PI);
+    azel[0] = atan2(neu[1],neu[0]);
+    if (azel[0]<0.0)
+        azel[0] += (2.0*PI);
 
-	ne = sqrt(neu[0]*neu[0] + neu[1]*neu[1]);
-	azel[1] = atan2(neu[2], ne);
+    ne = sqrt(neu[0]*neu[0] + neu[1]*neu[1]);
+    azel[1] = atan2(neu[2], ne);
 
-	return;
+    return;
 }
 
 /*! \brief Compute Satellite position, velocity and clock at given time
@@ -271,109 +271,109 @@ void neu2azel(double *azel, const double *neu)
  */
 void satpos(ephemeris eph, beidou_time g, double *pos, double *vel, double *clk)
 {
-	// Computing Satellite Velocity using the Broadcast Ephemeris
-	// http://www.ngs.noaa.gov/gps-toolbox/bc_velo.htm
+    // Computing Satellite Velocity using the Broadcast Ephemeris
+    // http://www.ngs.noaa.gov/gps-toolbox/bc_velo.htm
 
-	double tk;
-	double mk;
-	double ek;
-	double ekold;
-	double ekdot;
-	double cek,sek;
-	double pk;
-	double pkdot;
-	double c2pk,s2pk;
-	double uk;
-	double ukdot;
-	double cuk,suk;
-	double ok;
-	double sok,cok;
-	double ik;
-	double ikdot;
-	double sik,cik;
-	double rk;
-	double rkdot;
-	double xpk,ypk;
-	double xpkdot,ypkdot;
+    double tk;
+    double mk;
+    double ek;
+    double ekold;
+    double ekdot;
+    double cek,sek;
+    double pk;
+    double pkdot;
+    double c2pk,s2pk;
+    double uk;
+    double ukdot;
+    double cuk,suk;
+    double ok;
+    double sok,cok;
+    double ik;
+    double ikdot;
+    double sik,cik;
+    double rk;
+    double rkdot;
+    double xpk,ypk;
+    double xpkdot,ypkdot;
 
-	double relativistic, OneMinusecosE, tmp;
+    double relativistic, OneMinusecosE, tmp;
 
-	tk = g.second - eph.toe.second;
+    tk = g.second - eph.toe.second;
 
-	if(tk>SECONDS_IN_HALF_WEEK)
-		tk -= SECONDS_IN_WEEK;
-	else if(tk<-SECONDS_IN_HALF_WEEK)
-		tk += SECONDS_IN_WEEK;
+    if(tk>SECONDS_IN_HALF_WEEK)
+        tk -= SECONDS_IN_WEEK;
+    else if(tk<-SECONDS_IN_HALF_WEEK)
+        tk += SECONDS_IN_WEEK;
 
-	mk = eph.m0 + eph.n*tk;
-	ek = mk;
-	ekold = ek + 1.0;
+    mk = eph.m0 + eph.n*tk;
+    ek = mk;
+    ekold = ek + 1.0;
 
-	OneMinusecosE = 0; // Suppress the uninitialized warning.
-	while(fabs(ek-ekold)>1.0E-14)
-	{
-		ekold = ek;
-		OneMinusecosE = 1.0-eph.ecc*cos(ekold);
-		ek = ek + (mk-ekold+eph.ecc*sin(ekold))/OneMinusecosE;
-	}
+    OneMinusecosE = 0; // Suppress the uninitialized warning.
+    while(fabs(ek-ekold)>1.0E-14)
+    {
+        ekold = ek;
+        OneMinusecosE = 1.0-eph.ecc*cos(ekold);
+        ek = ek + (mk-ekold+eph.ecc*sin(ekold))/OneMinusecosE;
+    }
 
-	sek = sin(ek);
-	cek = cos(ek);
+    sek = sin(ek);
+    cek = cos(ek);
 
-	ekdot = eph.n/OneMinusecosE;
+    ekdot = eph.n/OneMinusecosE;
 
-	relativistic = -4.442807633E-10*eph.ecc*eph.sqrta*sek;
+    relativistic = -4.442807633E-10*eph.ecc*eph.sqrta*sek;
 
-	pk = atan2(eph.sq1e2*sek,cek-eph.ecc) + eph.omega;
-	pkdot = eph.sq1e2*ekdot/OneMinusecosE;
+    pk = atan2(eph.sq1e2*sek,cek-eph.ecc) + eph.omega;
+    pkdot = eph.sq1e2*ekdot/OneMinusecosE;
 
-	s2pk = sin(2.0*pk);
-	c2pk = cos(2.0*pk);
+    s2pk = sin(2.0*pk);
+    c2pk = cos(2.0*pk);
 
-	uk = pk + eph.cus*s2pk + eph.cuc*c2pk;
-	suk = sin(uk);
-	cuk = cos(uk);
-	ukdot = pkdot*(1.0 + 2.0*(eph.cus*c2pk - eph.cuc*s2pk));
+    uk = pk + eph.cus*s2pk + eph.cuc*c2pk;
+    suk = sin(uk);
+    cuk = cos(uk);
+    ukdot = pkdot*(1.0 + 2.0*(eph.cus*c2pk - eph.cuc*s2pk));
 
-	rk = eph.A*OneMinusecosE + eph.crc*c2pk + eph.crs*s2pk;
-	rkdot = eph.A*eph.ecc*sek*ekdot + 2.0*pkdot*(eph.crs*c2pk - eph.crc*s2pk);
+    rk = eph.A*OneMinusecosE + eph.crc*c2pk + eph.crs*s2pk;
+    rkdot = eph.A*eph.ecc*sek*ekdot + 2.0*pkdot*(eph.crs*c2pk - eph.crc*s2pk);
 
-	ik = eph.inc0 + eph.idot*tk + eph.cic*c2pk + eph.cis*s2pk;
-	sik = sin(ik);
-	cik = cos(ik);
-	ikdot = eph.idot + 2.0*pkdot*(eph.cis*c2pk - eph.cic*s2pk);
+    ik = eph.inc0 + eph.idot*tk + eph.cic*c2pk + eph.cis*s2pk;
+    sik = sin(ik);
+    cik = cos(ik);
+    ikdot = eph.idot + 2.0*pkdot*(eph.cis*c2pk - eph.cic*s2pk);
 
-	xpk = rk*cuk;
-	ypk = rk*suk;
-	xpkdot = rkdot*cuk - ypk*ukdot;
-	ypkdot = rkdot*suk + xpk*ukdot;
+    xpk = rk*cuk;
+    ypk = rk*suk;
+    xpkdot = rkdot*cuk - ypk*ukdot;
+    ypkdot = rkdot*suk + xpk*ukdot;
 
-	ok = eph.omg0 + tk*eph.omgkdot - OMEGA_EARTH*eph.toe.second;
-	sok = sin(ok);
-	cok = cos(ok);
+    ok = eph.omg0 + tk*eph.omgkdot - OMEGA_EARTH*eph.toe.second;
+    sok = sin(ok);
+    cok = cos(ok);
 
-	pos[0] = xpk*cok - ypk*cik*sok;
-	pos[1] = xpk*sok + ypk*cik*cok;
-	pos[2] = ypk*sik;
+    pos[0] = xpk*cok - ypk*cik*sok;
+    pos[1] = xpk*sok + ypk*cik*cok;
+    pos[2] = ypk*sik;
 
-	tmp = ypkdot*cik - ypk*sik*ikdot;
+    tmp = ypkdot*cik - ypk*sik*ikdot;
 
-	vel[0] = -eph.omgkdot*pos[1] + xpkdot*cok - tmp*sok;
-	vel[1] = eph.omgkdot*pos[0] + xpkdot*sok + tmp*cok;
-	vel[2] = ypk*cik*ikdot + ypkdot*sik;
+    vel[0] = -eph.omgkdot*pos[1] + xpkdot*cok - tmp*sok;
+    vel[1] = eph.omgkdot*pos[0] + xpkdot*sok + tmp*cok;
+    vel[2] = ypk*cik*ikdot + ypkdot*sik;
 
-	// Satellite clock correction
-	tk = g.second - eph.toc.second;
+    // Satellite clock correction
+    tk = g.second - eph.toc.second;
 
-	if(tk>SECONDS_IN_HALF_WEEK)
-		tk -= SECONDS_IN_WEEK;
-	else if(tk<-SECONDS_IN_HALF_WEEK)
-		tk += SECONDS_IN_WEEK;
+    if(tk>SECONDS_IN_HALF_WEEK)
+        tk -= SECONDS_IN_WEEK;
+    else if(tk<-SECONDS_IN_HALF_WEEK)
+        tk += SECONDS_IN_WEEK;
 
-	clk[0] = eph.af0 + tk*(eph.af1 + tk*eph.af2) + relativistic - eph.tgd1;
-	clk[1] = eph.af1 + 2.0*tk*eph.af2;
+    clk[0] = eph.af0 + tk*(eph.af1 + tk*eph.af2) + relativistic - eph.tgd1;
+    clk[1] = eph.af1 + 2.0*tk*eph.af2;
 
-	return;
+    return;
 }
 
 double subBeidouTime(beidou_time bd1, beidou_time bd0)
@@ -388,26 +388,26 @@ double subBeidouTime(beidou_time bd1, beidou_time bd0)
 
 beidou_time inBeidouTime(beidou_time g0, double dt)
 {
-	beidou_time g1;
+    beidou_time g1;
 
-	g1.week = g0.week;
-	g1.second = g0.second + dt;
+    g1.week = g0.week;
+    g1.second = g0.second + dt;
 
-	g1.second = round(g1.second*1000.0)/1000.0; // Avoid rounding error
+    g1.second = round(g1.second*1000.0)/1000.0; // Avoid rounding error
 
-	while (g1.second>=SECONDS_IN_WEEK)
-	{
-		g1.second -= SECONDS_IN_WEEK;
-		g1.week++;
-	}
+    while (g1.second>=SECONDS_IN_WEEK)
+    {
+        g1.second -= SECONDS_IN_WEEK;
+        g1.week++;
+    }
 
-	while (g1.second<0.0)
-	{
-		g1.second += SECONDS_IN_WEEK;
-		g1.week--;
-	}
+    while (g1.second<0.0)
+    {
+        g1.second += SECONDS_IN_WEEK;
+        g1.week--;
+    }
 
-	return(g1);
+    return(g1);
 }
 
 // 读取星历
@@ -443,7 +443,7 @@ int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fn
         // 前有60个空格，到达头文件尾
         if (strncmp(str+60, "END OF HEADER", 13)==0)
             break;
-        // 读取alpha
+            // 读取alpha
         else if(strncmp(str, "BDSA", 4)==0){
             // alpha0
             strncpy(tmp, str+5, 12);
@@ -473,7 +473,7 @@ int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fn
 
             flags |= 0x1;
         }
-        // 读取beta
+            // 读取beta
         else if(strncmp(str, "BDSB", 4)==0){
             //beta0
             strncpy(tmp, str+5, 12);
@@ -587,248 +587,248 @@ int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fn
 
         //钟漂
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].af1 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].af1 = atof(tmp);
 
         //钟漂的速率
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].af2 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].af2 = atof(tmp);
 
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
+            break;
 
         // 轨道参数1
         // 星历数据期龄
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].aode = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].aode = atof(tmp);
 
         // 轨道半径的正弦调和改正项的振幅
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].crs = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].crs = atof(tmp);
 
         // 卫星平均运动速率与计算值之差
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].deltan = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].deltan = atof(tmp);
 
         // 参考时间的平近点角
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].m0 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].m0 = atof(tmp);
 
         // 轨道参数2
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
-        
+            break;
+
         // 纬度幅角的余弦调和改正项的振幅
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].cuc = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].cuc = atof(tmp);
 
         // 偏心率
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].ecc = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].ecc = atof(tmp);
 
         // 纬度幅角的正弦调和改正项的振幅
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].cus = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].cus = atof(tmp);
 
         // 长半轴的平方根
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].sqrta = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].sqrta = atof(tmp);
 
         // 轨道参数3
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
-        
+            break;
+
         // 星历参考时刻
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].toe.second = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].toe.second = atof(tmp);
 
         // 轨道倾角的余弦调和改正项的振幅
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].cic = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].cic = atof(tmp);
 
         // 升交点经度
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].omg0 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].omg0 = atof(tmp);
 
         // 轨道倾角的正弦调和改正项的振幅
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].cis = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].cis = atof(tmp);
 
         // 轨道参数4
 
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
+            break;
 
         // i0 参考时间的轨道倾角
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].inc0 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].inc0 = atof(tmp);
 
         // 轨道半径的余弦调和改正项的振幅
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].crc = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].crc = atof(tmp);
 
         // 近地点幅角
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].omega = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].omega = atof(tmp);
 
         // 升交点赤经变化率
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].omgdot = atof(tmp);
-        
+        tmp[19] = 0;
+        eph[ieph][sv].omgdot = atof(tmp);
+
         // 轨道参数5
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
+            break;
 
         // IDOT 轨道倾角变化率
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].idot = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].idot = atof(tmp);
 
         // BDT 周数
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].toe.week = atoi(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].toe.week = atoi(tmp);
 
         // 轨道参数6
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
-        
+            break;
+
         // 轨道精度
         strncpy(tmp, str+4, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].sv_acc = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].sv_acc = atof(tmp);
 
         // 卫星可用标识，0为可用
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].sath1 = atoi(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].sath1 = atoi(tmp);
 
         // 设备时延差
         strncpy(tmp, str+42, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].tgd1 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].tgd1 = atof(tmp);
 
         strncpy(tmp, str+61, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].tgd2 = atof(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].tgd2 = atof(tmp);
 
         // 轨道参数7
         if (NULL==fgets(str, MAX_CHAR, fp))
-			break;
-        
+            break;
+
         // 时钟数据期龄
         strncpy(tmp, str+23, 19);
-		tmp[19] = 0;
-		eph[ieph][sv].aodc = atoi(tmp);
+        tmp[19] = 0;
+        eph[ieph][sv].aodc = atoi(tmp);
 
         eph[ieph][sv].vflag = 1;
 
         eph[ieph][sv].A = eph[ieph][sv].sqrta * eph[ieph][sv].sqrta;
-		eph[ieph][sv].n = sqrt(GM_EARTH/(eph[ieph][sv].A*eph[ieph][sv].A*eph[ieph][sv].A)) + eph[ieph][sv].deltan;
-		eph[ieph][sv].sq1e2 = sqrt(1.0 - eph[ieph][sv].ecc*eph[ieph][sv].ecc);
-		eph[ieph][sv].omgkdot = eph[ieph][sv].omgdot - OMEGA_EARTH;
+        eph[ieph][sv].n = sqrt(GM_EARTH/(eph[ieph][sv].A*eph[ieph][sv].A*eph[ieph][sv].A)) + eph[ieph][sv].deltan;
+        eph[ieph][sv].sq1e2 = sqrt(1.0 - eph[ieph][sv].ecc*eph[ieph][sv].ecc);
+        eph[ieph][sv].omgkdot = eph[ieph][sv].omgdot - OMEGA_EARTH;
     }
 
     fclose(fp);
 
     if (bd0.week>=0)
-		ieph += 1;
+        ieph += 1;
 
-	return(ieph);
+    return(ieph);
 }
 
 double ionosphericDelay(const ionoutc_t *ionoutc, beidou_time g, double *llh, double *azel)
 {
-	double iono_delay = 0.0;
-	double E,phi_u,lam_u,F;
+    double iono_delay = 0.0;
+    double E,phi_u,lam_u,F;
 
-	if (ionoutc->enable==false)
-		return (0.0); // No ionospheric delay
+    if (ionoutc->enable==false)
+        return (0.0); // No ionospheric delay
 
-	E = azel[1]/PI;
-	phi_u = llh[0]/PI;
-	lam_u = llh[1]/PI;
+    E = azel[1]/PI;
+    phi_u = llh[0]/PI;
+    lam_u = llh[1]/PI;
 
-	// Obliquity factor
-	F = 1.0 + 16.0*pow((0.53 - E),3.0);
+    // Obliquity factor
+    F = 1.0 + 16.0*pow((0.53 - E),3.0);
 
-	if (ionoutc->vflag==false)
-		iono_delay = F*5.0e-9*SPEED_OF_LIGHT;
-	else
-	{
-		double t,psi,phi_i,lam_i,phi_m,phi_m2,phi_m3;
-		double AMP,PER,X,X2,X4;
+    if (ionoutc->vflag==false)
+        iono_delay = F*5.0e-9*SPEED_OF_LIGHT;
+    else
+    {
+        double t,psi,phi_i,lam_i,phi_m,phi_m2,phi_m3;
+        double AMP,PER,X,X2,X4;
 
-		// Earth's central angle between the user position and the earth projection of
-		// ionospheric intersection point (semi-circles)
-		psi = 0.0137/(E + 0.11) - 0.022;
+        // Earth's central angle between the user position and the earth projection of
+        // ionospheric intersection point (semi-circles)
+        psi = 0.0137/(E + 0.11) - 0.022;
 
-		// Geodetic latitude of the earth projection of the ionospheric intersection point
-		// (semi-circles)
-		phi_i = phi_u + psi*cos(azel[0]);
-		if(phi_i>0.416)
-			phi_i = 0.416;
-		else if(phi_i<-0.416)
-			phi_i = -0.416;
+        // Geodetic latitude of the earth projection of the ionospheric intersection point
+        // (semi-circles)
+        phi_i = phi_u + psi*cos(azel[0]);
+        if(phi_i>0.416)
+            phi_i = 0.416;
+        else if(phi_i<-0.416)
+            phi_i = -0.416;
 
-		// Geodetic longitude of the earth projection of the ionospheric intersection point
-		// (semi-circles)
-		lam_i = lam_u + psi*sin(azel[0])/cos(phi_i*PI);
+        // Geodetic longitude of the earth projection of the ionospheric intersection point
+        // (semi-circles)
+        lam_i = lam_u + psi*sin(azel[0])/cos(phi_i*PI);
 
-		// Geomagnetic latitude of the earth projection of the ionospheric intersection
-		// point (mean ionospheric height assumed 350 km) (semi-circles)
-		phi_m = phi_i + 0.064*cos((lam_i - 1.617)*PI);
-		phi_m2 = phi_m*phi_m;
-		phi_m3 = phi_m2*phi_m;
+        // Geomagnetic latitude of the earth projection of the ionospheric intersection
+        // point (mean ionospheric height assumed 350 km) (semi-circles)
+        phi_m = phi_i + 0.064*cos((lam_i - 1.617)*PI);
+        phi_m2 = phi_m*phi_m;
+        phi_m3 = phi_m2*phi_m;
 
-		AMP = ionoutc->alpha0 + ionoutc->alpha1*phi_m
-			+ ionoutc->alpha2*phi_m2 + ionoutc->alpha3*phi_m3;
-		if (AMP<0.0)
-			AMP = 0.0;
+        AMP = ionoutc->alpha0 + ionoutc->alpha1*phi_m
+              + ionoutc->alpha2*phi_m2 + ionoutc->alpha3*phi_m3;
+        if (AMP<0.0)
+            AMP = 0.0;
 
-		PER = ionoutc->beta0 + ionoutc->beta1*phi_m
-			+ ionoutc->beta2*phi_m2 + ionoutc->beta3*phi_m3;
-		if (PER<72000.0)
-			PER = 72000.0;
+        PER = ionoutc->beta0 + ionoutc->beta1*phi_m
+              + ionoutc->beta2*phi_m2 + ionoutc->beta3*phi_m3;
+        if (PER<72000.0)
+            PER = 72000.0;
 
-		// Local time (sec)
-		t = SECONDS_IN_DAY/2.0*lam_i + g.second;
-		while(t>=SECONDS_IN_DAY)
-			t -= SECONDS_IN_DAY;
-		while(t<0)
-			t += SECONDS_IN_DAY;
+        // Local time (sec)
+        t = SECONDS_IN_DAY/2.0*lam_i + g.second;
+        while(t>=SECONDS_IN_DAY)
+            t -= SECONDS_IN_DAY;
+        while(t<0)
+            t += SECONDS_IN_DAY;
 
-		// Phase (radians)
-		X = 2.0*PI*(t - 50400.0)/PER;
+        // Phase (radians)
+        X = 2.0*PI*(t - 50400.0)/PER;
 
-		if(fabs(X)<1.57)
-		{
-			X2 = X*X;
-			X4 = X2*X2;
-			iono_delay = F*(5.0e-9 + AMP*(1.0 - X2/2.0 + X4/24.0))*SPEED_OF_LIGHT;
-		}
-		else
-			iono_delay = F*5.0e-9*SPEED_OF_LIGHT;
-	}
+        if(fabs(X)<1.57)
+        {
+            X2 = X*X;
+            X4 = X2*X2;
+            iono_delay = F*(5.0e-9 + AMP*(1.0 - X2/2.0 + X4/24.0))*SPEED_OF_LIGHT;
+        }
+        else
+            iono_delay = F*5.0e-9*SPEED_OF_LIGHT;
+    }
 
-	return (iono_delay);
+    return (iono_delay);
 }
 
 /*! \brief Compute range between a satellite and the receiver
@@ -839,61 +839,61 @@ double ionosphericDelay(const ionoutc_t *ionoutc, beidou_time g, double *llh, do
  */
 void computeRange(range_t *rho, ephemeris eph, ionoutc_t *ionoutc, beidou_time g, double xyz[])
 {
-	double pos[3],vel[3],clk[2];
-	double los[3];
-	double tau;
-	double range,rate;
-	double xrot,yrot;
+    double pos[3],vel[3],clk[2];
+    double los[3];
+    double tau;
+    double range,rate;
+    double xrot,yrot;
 
-	double llh[3],neu[3];
-	double tmat[3][3];
+    double llh[3],neu[3];
+    double tmat[3][3];
 
-	// SV position at time of the pseudorange observation.
-	satpos(eph, g, pos, vel, clk);
+    // SV position at time of the pseudorange observation.
+    satpos(eph, g, pos, vel, clk);
 
-	// Receiver to satellite vector and light-time.
-	subVect(los, pos, xyz);
-	tau = normVect(los)/SPEED_OF_LIGHT;
+    // Receiver to satellite vector and light-time.
+    subVect(los, pos, xyz);
+    tau = normVect(los)/SPEED_OF_LIGHT;
 
-	// Extrapolate the satellite position backwards to the transmission time.
-	pos[0] -= vel[0]*tau;
-	pos[1] -= vel[1]*tau;
-	pos[2] -= vel[2]*tau;
+    // Extrapolate the satellite position backwards to the transmission time.
+    pos[0] -= vel[0]*tau;
+    pos[1] -= vel[1]*tau;
+    pos[2] -= vel[2]*tau;
 
-	// Earth rotation correction. The change in velocity can be neglected.
-	xrot = pos[0] + pos[1]*OMEGA_EARTH*tau;
-	yrot = pos[1] - pos[0]*OMEGA_EARTH*tau;
-	pos[0] = xrot;
-	pos[1] = yrot;
+    // Earth rotation correction. The change in velocity can be neglected.
+    xrot = pos[0] + pos[1]*OMEGA_EARTH*tau;
+    yrot = pos[1] - pos[0]*OMEGA_EARTH*tau;
+    pos[0] = xrot;
+    pos[1] = yrot;
 
-	// New observer to satellite vector and satellite range.
-	subVect(los, pos, xyz);
-	range = normVect(los);
-	rho->d = range;
+    // New observer to satellite vector and satellite range.
+    subVect(los, pos, xyz);
+    range = normVect(los);
+    rho->d = range;
 
-	// Pseudorange.
-	rho->range = range - SPEED_OF_LIGHT*clk[0];
+    // Pseudorange.
+    rho->range = range - SPEED_OF_LIGHT*clk[0];
 
-	// Relative velocity of SV and receiver.
-	rate = dotProd(vel, los)/range;
+    // Relative velocity of SV and receiver.
+    rate = dotProd(vel, los)/range;
 
-	// Pseudorange rate.
-	rho->rate = rate; // - SPEED_OF_LIGHT*clk[1];
+    // Pseudorange rate.
+    rho->rate = rate; // - SPEED_OF_LIGHT*clk[1];
 
-	// Time of application.
-	rho->g = g;
+    // Time of application.
+    rho->g = g;
 
-	// Azimuth and elevation angles.
-	xyz2llh(xyz, llh);
-	ltcmat(llh, tmat);
-	ecef2neu(los, tmat, neu);
-	neu2azel(rho->azel, neu);
+    // Azimuth and elevation angles.
+    xyz2llh(xyz, llh);
+    ltcmat(llh, tmat);
+    ecef2neu(los, tmat, neu);
+    neu2azel(rho->azel, neu);
 
-	// Add ionospheric delay
-	rho->iono_delay = ionosphericDelay(ionoutc, g, llh, rho->azel);
-	rho->range += rho->iono_delay;
+    // Add ionospheric delay
+    rho->iono_delay = ionosphericDelay(ionoutc, g, llh, rho->azel);
+    rho->range += rho->iono_delay;
 
-	return;
+    return;
 }
 
 /*! \brief Compute the code phase for a given channel (satellite)
@@ -903,39 +903,39 @@ void computeRange(range_t *rho, ephemeris eph, ionoutc_t *ionoutc, beidou_time g
  */
 void computeCodePhase(beidou_channel *chan, range_t rho1, double dt)
 {
-	double ms;
-	int ims;
-	double rhorate;
+    double ms;
+    int ims;
+    double rhorate;
 
-	// Pseudorange rate.
-	rhorate = (rho1.range - chan->rho0.range)/dt;
+    // Pseudorange rate.
+    rhorate = (rho1.range - chan->rho0.range)/dt;
 
-	// Carrier and code frequency.
-	chan->f_carr = -rhorate/LAMBDA_B1;
-	chan->f_code = PRN_CODE_FREQ + chan->f_carr*CARR_TO_PRN;
+    // Carrier and code frequency.
+    chan->f_carr = -rhorate/LAMBDA_B1;
+    chan->f_code = PRN_CODE_FREQ + chan->f_carr*CARR_TO_PRN;
 
-	// Initial code phase and data bit counters.
-	ms = ((subBeidouTime(chan->rho0.g,chan->g0)+0.6) - chan->rho0.range/SPEED_OF_LIGHT)*1000.0;
+    // Initial code phase and data bit counters.
+    ms = ((subBeidouTime(chan->rho0.g,chan->g0)+0.6) - chan->rho0.range/SPEED_OF_LIGHT)*1000.0;
 
-	ims = (int)ms;
-	chan->code_phase = (ms-(double)ims)*PRN_SEQ_LEN; // in chip
+    ims = (int)ms;
+    chan->code_phase = (ms-(double)ims)*PRN_SEQ_LEN; // in chip
 
     chan->iword = ims/60; // 1 word = 30 bits = 60 ms
 
-	ims -= chan->iword*60;
+    ims -= chan->iword*60;
 
-	chan->ibit = ims/2; // 1 bit = 2 code = 2 ms
-	ims -= chan->ibit*2;
+    chan->ibit = ims/2; // 1 bit = 2 code = 2 ms
+    ims -= chan->ibit*2;
 
-	chan->icode = ims; // 1 code = 1 ms
+    chan->icode = ims; // 1 code = 1 ms
 
-	chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
 
-	// Save current pseudorange
-	chan->rho0 = rho1;
+    // Save current pseudorange
+    chan->rho0 = rho1;
 
-	return;
+    return;
 }
 
 /*! \brief Compute dot-product of two vectors
@@ -945,7 +945,7 @@ void computeCodePhase(beidou_channel *chan, range_t rho1, double dt)
  */
 double dotProd(const double *x1, const double *x2)
 {
-	return(x1[0]*x2[0]+x1[1]*x2[1]+x1[2]*x2[2]);
+    return(x1[0]*x2[0]+x1[1]*x2[1]+x1[2]*x2[2]);
 }
 
 // 生成测距码
@@ -959,29 +959,29 @@ void prn_code_gen(int *prn_code, int prn_number)
     int prn_selector_size;
     // 目前定义60行，最多4列，第一列代表长度
     int g2_phase[][4] = {
-        {2,0,2},{2,0,3},{2,0,4},{2,0,5},{2,0,7},{2,0,8},{2,0,9},{2,0,10},
-        {2,1,6},
-        {2,2,3},{2,2,4},{2,2,5},{2,2,7},{2,2,8},{2,2,9},{2,2,10},
-        {2,3,4},{2,3,5},{2,3,7},{2,3,8},{2,3,9},{2,3,10},
-        {2,4,5},{2,4,7},{2,4,8},{2,4,9},{2,4,10},
-        {2,5,7},{2,5,8},{2,5,9},{2,5,10},
-        {2,7,8},{2,7,9},{2,7,10},
-        {2,8,9},{2,8,10},
-        {2,9,10},
-        {3,0,1,6},
-        {3,0,2,3},{3,0,2,5},{3,0,2,7},{3,0,2,9},{3,0,2,10},
-        {3,0,3,4},{3,0,3,8},
-        {3,0,4,5},{3,0,4,7},{3,0,4,9},{3,0,4,10},
-        {3,0,5,8},
-        {3,0,7,8},
-        {3,0,8,9},{3,0,8,10},
-        {3,1,2,6},{3,1,4,6},{3,1,6,8},
-        {3,2,3,4},{3,2,3,8},{3,2,4,5},{3,2,4,7}
+            {2,0,2},{2,0,3},{2,0,4},{2,0,5},{2,0,7},{2,0,8},{2,0,9},{2,0,10},
+            {2,1,6},
+            {2,2,3},{2,2,4},{2,2,5},{2,2,7},{2,2,8},{2,2,9},{2,2,10},
+            {2,3,4},{2,3,5},{2,3,7},{2,3,8},{2,3,9},{2,3,10},
+            {2,4,5},{2,4,7},{2,4,8},{2,4,9},{2,4,10},
+            {2,5,7},{2,5,8},{2,5,9},{2,5,10},
+            {2,7,8},{2,7,9},{2,7,10},
+            {2,8,9},{2,8,10},
+            {2,9,10},
+            {3,0,1,6},
+            {3,0,2,3},{3,0,2,5},{3,0,2,7},{3,0,2,9},{3,0,2,10},
+            {3,0,3,4},{3,0,3,8},
+            {3,0,4,5},{3,0,4,7},{3,0,4,9},{3,0,4,10},
+            {3,0,5,8},
+            {3,0,7,8},
+            {3,0,8,9},{3,0,8,10},
+            {3,1,2,6},{3,1,4,6},{3,1,6,8},
+            {3,2,3,4},{3,2,3,8},{3,2,4,5},{3,2,4,7}
     };
-    
+
     if(prn_number < 1 || prn_number > 60)
         return;
-    
+
     prn_selector = g2_phase[prn_number - 1];
     prn_selector_size = prn_selector[0];
     // 初始化x1,x2相位
@@ -999,7 +999,7 @@ void prn_code_gen(int *prn_code, int prn_number)
         g2[i] = 0;
         for(k = 1; k <= prn_selector_size; ++k)
             g2[i] ^= x2[prn_selector[k]];
-            
+
         /**
         for(int k = 0; k < LFSR_LEN; ++k)
             printf("%d ",x1[k]);
@@ -1018,7 +1018,7 @@ void prn_code_gen(int *prn_code, int prn_number)
             x2[j] = x2[j-1];
         }
         x1[0] = c1;
-        x2[0] = c2; 
+        x2[0] = c2;
 
     }
 
@@ -1160,7 +1160,7 @@ void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time){
     int day[12] = {0,31,59,90,120,151,181,212,243,273,304,334};
     int start_year, start_month, start_day;
     int d_days, leap_days, d_years;
-    
+
     start_year = 2006, start_month = 1, start_day = 1;
     leap_days = 0;
     // 相差的年份
@@ -1172,7 +1172,7 @@ void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time){
             ++leap_days;
         ++start_year;
     }
-    
+
     // 相差的天数
     d_days =  d_years * 365 + day[U_time->month - 1] + U_time->day + leap_days - 1;
     // 计算北斗周数
@@ -1181,7 +1181,7 @@ void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time){
     bd_time->back0time = bd_time->week / 8192;
     // 计算北斗秒数
     bd_time->second = (double)(d_days % 7)* SECONDS_IN_DAY + U_time->hour * SECONDS_IN_HOUR
-                        + U_time->minute * SECONDS_IN_MINUTE + U_time->second;
+                      + U_time->minute * SECONDS_IN_MINUTE + U_time->second;
     return;
 }
 
@@ -1255,9 +1255,9 @@ void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
      * 第六个字
      */
     sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
-     /**
-      * 第七个字
-      */
+    /**
+     * 第七个字
+     */
     sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
     /**
       * 第八个字
@@ -1276,7 +1276,6 @@ void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
 unsigned long convert_nav_msg_complement(long source, int bits){
     unsigned long mask;
     unsigned long result;
-
     // 符号位
     unsigned long sign_bit;
 
@@ -1285,15 +1284,15 @@ unsigned long convert_nav_msg_complement(long source, int bits){
 
     // 正数不用转换，直接操作符号位即可。0为正，1为负。
     if(source > 0){
-        result = (0 << (bits-1)) | source;
+        result = (0 << (bits-1)) & source;
     }
     else{
         sign_bit = 1 << (bits-1);
 
         // 数据位
-        mask = 0;
-        for(int i=0; i < bits - 1; ++i)
-            mask = (mask << 1) | 0x1;
+        mask = 1;
+        for(int i = 0; i < bits - 2; ++i)
+            mask = (mask << 1) | 0x1UL;
 
         // 结果的数据位
         result = source & mask;
@@ -1306,45 +1305,44 @@ unsigned long convert_nav_msg_complement(long source, int bits){
     return result;
 }
 
-
 void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[][WORD_NUM]){
 
     unsigned long wn;
-	unsigned long toe;
-	unsigned long toc;
-	unsigned long aode;
-	unsigned long aodc;
-	long deltan;
-	long cuc;
-	long cus;
-	long cic;
-	long cis;
-	long crc;
-	long crs;
-	unsigned long ecc;
-	unsigned long sqrta;
-	long m0;
-	long omg0;
-	long inc0;
-	long omega;
-	long omgdot;
-	long idot;
-	long af0;
-	long af1;
-	long af2;
-	long tgd1,tgd2;
-    
+    unsigned long toe;
+    unsigned long toc;
+    unsigned long aode;
+    unsigned long aodc;
+    long deltan;
+    long cuc;
+    long cus;
+    long cic;
+    long cis;
+    long crc;
+    long crs;
+    unsigned long ecc;
+    unsigned long sqrta;
+    long m0;
+    long omg0;
+    long inc0;
+    long omega;
+    long omgdot;
+    long idot;
+    long af0;
+    long af1;
+    long af2;
+    long tgd1,tgd2;
+
 
     unsigned long ura = 0UL;
 
     unsigned long wna;
-	unsigned long toa;
+    unsigned long toa;
 
     signed long alpha0,alpha1,alpha2,alpha3;
-	signed long beta0,beta1,beta2,beta3;
-	signed long A0,A1;
-	signed long dtls,dtlsf;
-	unsigned long tot,wnt,wnlsf,dn;
+    signed long beta0,beta1,beta2,beta3;
+    signed long A0,A1;
+    signed long dtls,dtlsf;
+    unsigned long tot,wnt,wnlsf,dn;
 
     // 转换后的补码
     unsigned long deltan_c;
@@ -1380,11 +1378,12 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     week = (unsigned long)(eph.toc.week);
 
     // 有缩放因子，所以需要除
+    // TODO modify
     toe = (unsigned long)(eph.toe.second/8.0);
-	toc = (unsigned long)(eph.toc.second/8.0);
+    toc = (unsigned long)(eph.toc.second/8.0);
 
     aode = (unsigned long)(eph.aode);
-	aodc = (unsigned long)(eph.aodc);
+    aodc = (unsigned long)(eph.aodc);
     // 星历中deltan的单位是rad/s，导航电文是pi/s
     deltan = (long)(eph.deltan/POW2_M43/PI);
     cuc = (long)(eph.cuc/POW2_M31);
@@ -1402,20 +1401,20 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     omgdot = (long)(eph.omgdot/POW2_M43/PI);
     idot = (long)(eph.idot/POW2_M43/PI);
     af0 = (long)(eph.af0/POW2_M33);
-	af1 = (long)(eph.af1/POW2_M50);
-	af2 = (long)(eph.af2/POW2_M66);
+    af1 = (long)(eph.af1/POW2_M50);
+    af2 = (long)(eph.af2/POW2_M66);
     tgd1 = (long)(eph.tgd1/0.1);
     tgd2 = (long)(eph.tgd2/0.1);
 
     // 电离层改正数
     alpha0 = (signed long)round(ionoutc.alpha0/POW2_M30);
-	alpha1 = (signed long)round(ionoutc.alpha1/POW2_M27);
-	alpha2 = (signed long)round(ionoutc.alpha2/POW2_M24);
-	alpha3 = (signed long)round(ionoutc.alpha3/POW2_M24);
-	beta0 = (signed long)round(ionoutc.beta0/2048.0);
-	beta1 = (signed long)round(ionoutc.beta1/16384.0);
-	beta2 = (signed long)round(ionoutc.beta2/65536.0);
-	beta3 = (signed long)round(ionoutc.beta3/65536.0);
+    alpha1 = (signed long)round(ionoutc.alpha1/POW2_M27);
+    alpha2 = (signed long)round(ionoutc.alpha2/POW2_M24);
+    alpha3 = (signed long)round(ionoutc.alpha3/POW2_M24);
+    beta0 = (signed long)round(ionoutc.beta0/2048.0);
+    beta1 = (signed long)round(ionoutc.beta1/16384.0);
+    beta2 = (signed long)round(ionoutc.beta2/65536.0);
+    beta3 = (signed long)round(ionoutc.beta3/65536.0);
 
     // 将数据转换为导航电文所要求的补码格式
     af0_c = convert_nav_msg_complement(af0,24);
@@ -1428,7 +1427,6 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     m0_c = convert_nav_msg_complement(m0, 32);
     omg0_c = convert_nav_msg_complement(omg0, 32);
     omgdot_c = convert_nav_msg_complement(omgdot, 24);
-    omega_c = convert_nav_msg_complement(omega, 24);
     inc0_c = convert_nav_msg_complement(inc0, 32);
     idot_c = convert_nav_msg_complement(idot, 14);
     cuc_c = convert_nav_msg_complement(cuc, 18);
@@ -1447,7 +1445,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     beta2_c = convert_nav_msg_complement(beta0, 8);
     beta3_c = convert_nav_msg_complement(beta3, 8);
 
-    week = (week+1) & 0x1FFFUL;
+    week = week & 0x1FFFUL;
     second = second & 0xFFFFFUL;
     aodc = aodc & 0x1FUL;
     toc = toc & 0x1FFFFUL;
@@ -1467,20 +1465,20 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
      * SOW(前8bit)，周内秒计数
      */
     sbf[0][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-     /** 第二个字
-      * SOW | Pnum1 | SatH1 | AODC
-      * SOW(后12bit)，周内秒计数
-      * Pnum1(4bit), 页面号
-      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用p
-      * AODC(5bit)，时钟数据龄期，暂定为 0
-      */
+    /** 第二个字
+     * SOW | Pnum1 | SatH1 | AODC
+     * SOW(后12bit)，周内秒计数
+     * Pnum1(4bit), 页面号
+     * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用p
+     * AODC(5bit)，时钟数据龄期，暂定为 0
+     */
     sbf[0][1] = ( second & 0xFFF) << 18 | 0x1UL << 14 | 0 << 13 | aodc << 8;
-     /** 第三个字
-      * URAI | WN | toc
-      * URAI(4bit)，用户距离精度指数，暂定为 8
-      * WN(13bit)，整周计数
-      * toc(前5bit)，时钟时间
-      */
+    /** 第三个字
+     * URAI | WN | toc
+     * URAI(4bit)，用户距离精度指数，暂定为 8
+     * WN(13bit)，整周计数
+     * toc(前5bit)，时钟时间
+     */
     sbf[0][2] = 0x8UL << 26 | week << 13 | (toc >> 12) << 8 ;
     /**
     * 第四个字
@@ -1510,177 +1508,178 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     // 第一帧 第三字
     ////////////////////////////////////////////////////////////
     sbf[1][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[1][1] = ( second & 0xFFF) << 18 | 0x3UL << 14 | 0 << 14;
+    sbf[1][1] = ( second & 0xFFF) << 18 | 0x3UL << 14 | 0 << 8;
     sbf[1][2] = 0 << 8;
     sbf[1][3] = 0 << 20 | (af0_c >> 12) << 8;
-    sbf[1][4] = (af0_c & 0xFFF) << 18 | (af1_c >> 18) << 14;
+    sbf[1][4] = (af0_c & 0xFFFUL) << 18 | (af1_c >> 18) << 14;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第四字
     ////////////////////////////////////////////////////////////
     sbf[1][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[1][6] = ( second & 0xFFF) << 18 | 0x4UL << 14 | ((af1_c & 0x3F000) << 8);
-    sbf[1][7] = (af1_c & 0xFFF) << 18 | (af2_c >> 10) << 8;
-    sbf[1][8] = (af2_c & 0x1) << 29 | aode << 24 | deltan_c << 8;
-    sbf[1][9] = (cuc_c >> 4) << 16;
+    sbf[1][6] = ( second & 0xFFFUL) << 18 | 0x4UL << 14 | ((af1_c & 0x3F000) << 8);
+    sbf[1][7] = (af1_c & 0xFFFUL)<< 18 | (af2_c >> 1) << 8;
+    sbf[1][8] = (af2_c & 0x1UL) << 29 | aode << 24 | deltan_c << 8;
+    sbf[1][9] = (cuc_c >> 4) << 16 | 0 << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第五字
     ////////////////////////////////////////////////////////////
     sbf[2][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[2][1] = ( second & 0xFFF) << 18 | 0x5UL << 14 | (cuc_c & 0x4) << 10 | (m0_c >> 30) << 8;
-    sbf[2][2] = (m0_c & 0x3FFFFF) << 8;
-    sbf[2][3] =(m0_c & 0xFF) << 22 | (cus_c >> 4) << 8;
+    sbf[2][1] = ( second & 0xFFFUL) << 18 | 0x5UL << 14 | (cuc_c & 0x4UL) << 10 | (m0_c >> 30) << 8;
+    sbf[2][2] = (m0_c & 0x3FFFFF00UL) << 8;
+    sbf[2][3] =(m0_c & 0xFFUL) << 22 | (cus_c >> 4) << 8;
     sbf[2][4] = (cus_c & 0xF) << 26 | (ecc >> 22) << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第六字
     ////////////////////////////////////////////////////////////
     sbf[2][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[2][6] = ( second & 0xFFF) << 18 | 0x6UL << 14 | (ecc & 0x2F0000) << 8;
-    sbf[2][7] = (ecc & 0xFFFF) << 14 | (sqrta >> 22) << 8;
-    sbf[2][8] = (sqrta & 0x3FFFFF) << 8;
-    sbf[2][9] = (sqrta & 0xF) << 26 | (cic_c >> 8) << 8;
+    sbf[2][6] = ( second & 0xFFFUL) << 18 | 0x6UL << 14 | (ecc & 0x3F0000UL) << 8;
+    sbf[2][7] = (ecc & 0xFFFFUL) << 14 | (sqrta >> 22) << 8;
+    sbf[2][8] = (sqrta & 0x3FFFFF0UL) << 8;
+    sbf[2][9] = (sqrta & 0xFUL) << 26 | (cic_c >> 8) << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第七字
     ////////////////////////////////////////////////////////////
     sbf[3][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[3][1] = ( second & 0xFFFUL) << 18 | 0x7UL << 14 | (cic_c & 0xFC) << 8;
-    sbf[3][2] = (cic_c & 0x2) << 28 | cis_c << 10 | (toe >> 15) << 8;
-    sbf[3][3] = (toe & 0x7FFF) << 15 | (inc0_c >> 25) << 8;
-    sbf[3][4] = (inc0_c & 0x1FFF800) << 8;
+    sbf[3][1] = ( second & 0xFFFUL) << 18 | 0x7UL << 14 | (cic_c & 0xFCUL) << 8;
+    sbf[3][2] = (cic_c & 0x2UL) << 28 | cis_c << 10 | (toe >> 15) << 8;
+    sbf[3][3] = (toe & 0x7FFFUL) << 15 | (inc0_c >> 25) << 8;
+    sbf[3][4] = (inc0_c & 0x1FFF800UL) << 16 | 0 << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第八字
     ////////////////////////////////////////////////////////////
     sbf[3][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[3][6] = ( second & 0xFFFUL) << 18 | 0x8UL << 14 | (inc0_c & 0x7E0) << 8;
-    sbf[3][7] = (inc0_c & 0x1F) << 25 | (crc_c >> 1) << 8;
-    sbf[3][8] = (crc_c & 0x1) << 29 | crs_c << 11 | (omgdot_c >> 21) << 8;
-    sbf[3][9] = (omgdot_c & 0x1FFFE0) << 14;
+    sbf[3][6] = ( second & 0xFFFUL) << 18 | 0x8UL << 14 | (inc0_c & 0x7E0UL) << 8;
+    sbf[3][7] = (inc0_c & 0x1FUL) << 25 | (crc_c >> 1) << 8;
+    sbf[3][8] = (crc_c & 0x1UL) << 29 | crs_c << 11 | (omgdot_c >> 21) << 8;
+    sbf[3][9] = (omgdot_c & 0x1FFFE0UL ) << 14 | 0 << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第九字
     ////////////////////////////////////////////////////////////
     sbf[4][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[4][1] = ( second & 0xFFFUL) << 18 | 0x9UL << 14 | (omgdot_c & 0x1F) << 9 | (omg0_c >> 31) << 8;
-    sbf[4][2] = (omg0_c & 0x7FFFFE00) << 8;
-    sbf[4][3] = (omg0_c & 0x1FF) << 21 | (omega_c >> 19) << 8;
-    sbf[4][4] = (omega_c & 0x7ffe0) << 16;
+    sbf[4][1] = ( second & 0xFFFUL) << 18 | 0x9UL << 14 | (omgdot_c & 0x1FUL) << 9 | (omg0_c >> 31) << 8;
+    sbf[4][2] = (omg0_c & 0x7FFFFE00UL) << 8;
+    sbf[4][3] = (omg0_c & 0x1FFUL) << 21 | (omega_c >> 19) << 8;
+    sbf[4][4] = (omega_c & 0x7FFE0UL) << 16 | 0 << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第十字
     ////////////////////////////////////////////////////////////
     sbf[4][5] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    sbf[4][6] = ( second & 0xFFFUL) << 18 | 0xAUL << 14 | (omega_c & 0x1F) << 9 | (idot_c >> 13) << 8;
-    sbf[4][7] = (idot_c & 0x1FFF) << 17;
-    sbf[4][8] = 0;
-    sbf[4][9] = 0;
+    sbf[4][6] = ( second & 0xFFFUL) << 18 | 0xAUL << 14 | (omega_c & 0x1FUL) << 9 | (idot_c >> 13) << 8;
+    sbf[4][7] = (idot_c & 0x1FFFUL) << 17 | 0 << 8;
+    sbf[4][8] = 0UL;
+    sbf[4][9] = 0UL;
 }
 
 int checkSatVisibility(ephemeris eph, beidou_time g, double *xyz, double elvMask, double *azel)
 {
-	double llh[3],neu[3];
-	double pos[3],vel[3],clk[3],los[3];
-	double tmat[3][3];
+    double llh[3],neu[3];
+    double pos[3],vel[3],clk[3],los[3];
+    double tmat[3][3];
 
-	if (eph.vflag != 1)
-		return (-1); // Invalid
+    if (eph.vflag != 1)
+        return (-1); // Invalid
 
-	xyz2llh(xyz,llh);
-	ltcmat(llh, tmat);
+    xyz2llh(xyz,llh);
+    ltcmat(llh, tmat);
 
-	satpos(eph, g, pos, vel, clk);
-	subVect(los, pos, xyz);
-	ecef2neu(los, tmat, neu);
-	neu2azel(azel, neu);
+    satpos(eph, g, pos, vel, clk);
+    subVect(los, pos, xyz);
+    ecef2neu(los, tmat, neu);
+    neu2azel(azel, neu);
 
     //return 1;
 
-	if (azel[1]*R2D > elvMask)
-		return (1); // Visible
-	// else
-	return (0); // Invisible
+    if (azel[1]*R2D > elvMask)
+        return (1); // Visible
+    // else
+    return (0); // Invisible
 }
 
 int allocate_channel(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask)
 {
 
     int nsat=0;
-	int i,sv;
-	double azel[2];
+    int i,sv;
+    double azel[2];
 
-	range_t rho;
-	double ref[3]={0.0};
-	double r_ref,r_xyz;
-	double phase_ini;
+    range_t rho;
+    double ref[3]={0.0};
+    double r_ref,r_xyz;
+    double phase_ini;
 
     for (sv=0; sv<MAX_SAT; sv++)
-	{
-		if(checkSatVisibility(eph[sv], grx, xyz, 0.0, azel)==1)
-		{
-			nsat++; // Number of visible satellites
+    {
+        if(checkSatVisibility(eph[sv], grx, xyz, 0.0, azel)==1)
+        {
+            nsat++; // Number of visible satellites
 
-			if (allocatedSat[sv]==-1) // Visible but not allocated
-			{
-				// Allocated new satellite
-				for (i=0; i<MAX_CHAN_SIM; i++)
-				{
-					if (chan[i].prn_num==0)
-					{
-						// Initialize channel
-						chan[i].prn_num = sv+1;
-						chan[i].azel[0] = azel[0];
-						chan[i].azel[1] = azel[1];
+            if (allocatedSat[sv]==-1) // Visible but not allocated
+            {
+                // Allocated new satellite
+                for (i=0; i<MAX_CHAN_SIM; i++)
+                {
+                    if (chan[i].prn_num==0)
+                    {
+                        // Initialize channel
+                        chan[i].prn_num = sv+1;
+                        chan[i].azel[0] = azel[0];
+                        chan[i].azel[1] = azel[1];
 
-						// C/A code generation
+                        // C/A code generation
                         prn_code_gen(chan[i].prn_code, chan[i].prn_num);
                         //TODO Generate subframe
 
                         eph2sbf_D2(eph[sv], ionoutc, chan[i].subframe);
 
-						//TODO Generate navigation message
+                        //TODO Generate navigation message
                         nav_msg_gen(grx, &chan[i], 1);
-						// Initialize pseudorange
-						computeRange(&rho, eph[sv], &ionoutc, grx, xyz);
-						chan[i].rho0 = rho;
+                        // Initialize pseudorange
+                        computeRange(&rho, eph[sv], &ionoutc, grx, xyz);
+                        chan[i].rho0 = rho;
 
-						// Initialize carrier phase
-						r_xyz = rho.range;
+                        // Initialize carrier phase
+                        r_xyz = rho.range;
 
-						computeRange(&rho, eph[sv], &ionoutc, grx, ref);
-						r_ref = rho.range;
+                        computeRange(&rho, eph[sv], &ionoutc, grx, ref);
+                        r_ref = rho.range;
 
-						phase_ini = (2.0*r_ref - r_xyz)/LAMBDA_B1;
-						phase_ini -= floor(phase_ini);
-						chan[i].carr_phase = (unsigned int)(512 * 65536.0 * phase_ini);
-						// Done.
-						break;
-					}
-				}
+                        phase_ini = (2.0*r_ref - r_xyz)/LAMBDA_B1;
+                        phase_ini -= floor(phase_ini);
+                        chan[i].carr_phase = (unsigned int)(512 * 65536.0 * phase_ini);
+                        // Done.
+                        break;
+                    }
+                }
 
-				// Set satellite allocation channel
-				if (i<MAX_CHAN_SIM)
-					allocatedSat[sv] = i;
-			}
-		}
-		else if (allocatedSat[sv]>=0) // Not visible but allocated
-		{
-			// Clear channel
-			chan[allocatedSat[sv]].prn_num = 0;
+                // Set satellite allocation channel
+                if (i<MAX_CHAN_SIM)
+                    allocatedSat[sv] = i;
+            }
+        }
+        else if (allocatedSat[sv]>=0) // Not visible but allocated
+        {
+            // Clear channel
+            chan[allocatedSat[sv]].prn_num = 0;
 
-			// Clear satellite allocation flag
-			allocatedSat[sv] = -1;
-		}
-	}
-	return(nsat);
+            // Clear satellite allocation flag
+            allocatedSat[sv] = -1;
+        }
+    }
+    return(nsat);
 }
 
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     beidou_time g0;
     g0.week = bd_time.week;
-    g0.second = (double)(((unsigned long)(bd_time.second+0.5))/3UL) * 3.0; // Align with the full frame length = 3 sec
+    // TODO +0.05
+    g0.second = (double)(((unsigned long)(bd_time.second+0.05))/3UL) * 3.0; // Align with the full frame length = 3 sec
     chan->g0 = g0; // Data bit reference time
 
     for(int i = 0; i < 5; ++i){
@@ -1747,17 +1746,17 @@ void *beidou_task(void *arg)
     short *iq_buff = NULL;
     int iq_buff_size;
     beidou_time grx;
-	double delt;
+    double delt;
     int isamp;
 
     int iumd;
-	int numd;
-	double **xyz;
+    int numd;
+    double **xyz;
 
     double ant_pat[37];
 
     UTC_time t0,tmin,tmax;
-	beidou_time gmin,gmax;
+    beidou_time gmin,gmax;
     double dt;
     int igrx;
 
@@ -1779,8 +1778,8 @@ void *beidou_task(void *arg)
 
     //经纬高
     llh[0] = 40;
-	llh[1] = 100;
-	llh[2] = 100;
+    llh[1] = 30;
+    llh[2] = 100;
 
     iq_buff_size = NUM_IQ_SAMPLES;
     iq_buff = calloc(2*iq_buff_size, 2);
@@ -1789,37 +1788,37 @@ void *beidou_task(void *arg)
         printf("ERROR: 分配 I/Q buff失败.\n");
         goto exit;
     }
-    
+
     delt = 1.0/(double)TX_SAMPLERATE;
 
     // 电离层误差
     ionoutc.enable = true;
 
     ////////////////////////////////////////////////////////////
-	// Receiver position
-	////////////////////////////////////////////////////////////
+    // Receiver position
+    ////////////////////////////////////////////////////////////
     // Allocate user motion array
-	xyz = (double **)malloc(USER_MOTION_SIZE * sizeof(double**));
+    xyz = (double **)malloc(USER_MOTION_SIZE * sizeof(double**));
 
-	if (xyz==NULL)
-	{
-		printf("ERROR: Faild to allocate user motion array.\n");
-		goto exit;
-	}
+    if (xyz==NULL)
+    {
+        printf("ERROR: Faild to allocate user motion array.\n");
+        goto exit;
+    }
 
     for (i=0; i<USER_MOTION_SIZE; i++)
-	{
-		xyz[i] = (double *)malloc(3 * sizeof(double));
+    {
+        xyz[i] = (double *)malloc(3 * sizeof(double));
 
-		if (xyz[i]==NULL)
-		{
-			for (j=i-1; j>=0; j--)
-				free(xyz[i]);
+        if (xyz[i]==NULL)
+        {
+            for (j=i-1; j>=0; j--)
+                free(xyz[i]);
 
-			printf("ERROR: Faild to allocate user motion array.\n");
-			goto exit;
-		}
-	}
+            printf("ERROR: Faild to allocate user motion array.\n");
+            goto exit;
+        }
+    }
 
     // Static geodetic coordinates input mode: "-l"
     printf("Using static location mode.\n");
@@ -1835,42 +1834,42 @@ void *beidou_task(void *arg)
     }
 
     // Initialize the local tangential matrix for interactive mode
-	ltcmat(llh, tmat);
+    ltcmat(llh, tmat);
 
     printf("xyz = %11.1f, %11.1f, %11.1f\n", xyz[0][0], xyz[0][1], xyz[0][2]);
-	printf("llh = %11.6f, %11.6f, %11.1f\n", llh[0]*R2D, llh[1]*R2D, llh[2]);
+    printf("llh = %11.6f, %11.6f, %11.1f\n", llh[0]*R2D, llh[1]*R2D, llh[2]);
 
     neph = readRinexNavAll(eph, &ionoutc, navfile);
-    
-    if (neph==0)
-	{
-		printf("ERROR: No ephemeris available.\n");
-		goto exit;
-	}
 
-	if (ionoutc.vflag==true)
-	{
-		printf("  %12.3e %12.3e %12.3e %12.3e\n",
-			ionoutc.alpha0, ionoutc.alpha1, ionoutc.alpha2, ionoutc.alpha3);
-		printf("  %12.3e %12.3e %12.3e %12.3e\n",
-			ionoutc.beta0, ionoutc.beta1, ionoutc.beta2, ionoutc.beta3);
-		printf("   %19.11e %19.11e  %9d %9d\n",
-			ionoutc.A0, ionoutc.A1, ionoutc.tot, ionoutc.wnt);
-		printf("%6d\n", ionoutc.dtls);
-	}
+    if (neph==0)
+    {
+        printf("ERROR: No ephemeris available.\n");
+        goto exit;
+    }
+
+    if (ionoutc.vflag==true)
+    {
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.alpha0, ionoutc.alpha1, ionoutc.alpha2, ionoutc.alpha3);
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.beta0, ionoutc.beta1, ionoutc.beta2, ionoutc.beta3);
+        printf("   %19.11e %19.11e  %9d %9d\n",
+               ionoutc.A0, ionoutc.A1, ionoutc.tot, ionoutc.wnt);
+        printf("%6d\n", ionoutc.dtls);
+    }
 
     gmin.second = 0.0;
-	gmax.second = 0.0;
+    gmax.second = 0.0;
 
     for (sv=0; sv<MAX_SAT; sv++)
-	{
-		if (eph[0][sv].vflag==1)
-		{
-			gmin = eph[0][sv].toc;
-			tmin = eph[0][sv].t;
-			break;
-		}
-	}
+    {
+        if (eph[0][sv].vflag==1)
+        {
+            gmin = eph[0][sv].toc;
+            tmin = eph[0][sv].t;
+            break;
+        }
+    }
 
     for (sv=0; sv<MAX_SAT; sv++)
     {
@@ -1883,46 +1882,46 @@ void *beidou_task(void *arg)
     }
 
     g0 = gmin;
-	t0 = tmin;
+    t0 = tmin;
 
     printf("tmin = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-		tmin.year, tmin.month, tmin.day, tmin.hour, tmin.minute, tmin.second,
-		gmin.week, gmin.second);
-	printf("tmax = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-		tmax.year, tmax.month, tmax.day, tmax.hour, tmax.minute, tmax.second,
-		gmax.week, gmax.second);
+           tmin.year, tmin.month, tmin.day, tmin.hour, tmin.minute, tmin.second,
+           gmin.week, gmin.second);
+    printf("tmax = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           tmax.year, tmax.month, tmax.day, tmax.hour, tmax.minute, tmax.second,
+           gmax.week, gmax.second);
 
-	printf("Start time = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-		t0.year, t0.month, t0.day, t0.hour, t0.minute, t0.second, g0.week, g0.second);
-	printf("Duration = %.1f [sec]\n", ((double)numd)/10.0);
+    printf("Start time = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           t0.year, t0.month, t0.day, t0.hour, t0.minute, t0.second, g0.week, g0.second);
+    printf("Duration = %.1f [sec]\n", ((double)numd)/10.0);
 
     // Select the current set of ephemerides
-	ieph = -1;
+    ieph = -1;
     for (i=0; i<neph; i++)
-	{
-		for (sv=0; sv<MAX_SAT; sv++)
-		{
-			if (eph[i][sv].vflag == 1)
-			{
-				dt = subBeidouTime(g0, eph[i][sv].toc);
-				if (dt>=-SECONDS_IN_HOUR && dt<SECONDS_IN_HOUR)
-				{
-					ieph = i;
-					break;
-				}
-			}
-		}
+    {
+        for (sv=0; sv<MAX_SAT; sv++)
+        {
+            if (eph[i][sv].vflag == 1)
+            {
+                dt = subBeidouTime(g0, eph[i][sv].toc);
+                if (dt>=-SECONDS_IN_HOUR && dt<SECONDS_IN_HOUR)
+                {
+                    ieph = i;
+                    break;
+                }
+            }
+        }
 
-		if (ieph>=0) // ieph has been set
-			break;
-	}
+        if (ieph>=0) // ieph has been set
+            break;
+    }
 
     if (ieph == -1)
-	{
-		printf("ERROR: No current set of ephemerides has been found.\n");
-		goto exit;
-	}
-    
+    {
+        printf("ERROR: No current set of ephemerides has been found.\n");
+        goto exit;
+    }
+
     ////////////////////////////////////////////////////////////
     // 初始化发送信道
     ////////////////////////////////////////////////////////////
@@ -1932,11 +1931,11 @@ void *beidou_task(void *arg)
         chan[i].prn_num = 0;
 
     // Clear satellite allocation flag
-	for (sv=0; sv<MAX_SAT; sv++)
-		allocatedSat[sv] = -1;
+    for (sv=0; sv<MAX_SAT; sv++)
+        allocatedSat[sv] = -1;
 
     // Initial reception time
-	grx = inBeidouTime(g0, 0.0);
+    grx = inBeidouTime(g0, 0.0);
 
     // 分配信道
     allocate_channel(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
@@ -2010,7 +2009,7 @@ void *beidou_task(void *arg)
                             // 30 bits = 1 word
                             if(chan[i].ibit >= WORD_LEN){
                                 chan[i].ibit = 0;
-                                printf("prn=%d, iword= %d\n",chan[i].prn_num, chan[i].iword);
+                                //printf("prn=%d, iword= %d\n",chan[i].prn_num, chan[i].iword);
                                 ++chan[i].iword;
                                 // TODO D2 5个word 等于1帧
                                 if(chan[i].iword >= N_WORD){
@@ -2056,6 +2055,7 @@ void *beidou_task(void *arg)
             s->head -= FIFO_LENGTH;
         pthread_cond_signal(&(s->fifo_read_ready));
 
+        // TODO +0.05 reason
         igrx = (int)(grx.second*10.0+0.05);
 
         //TODO SOW+3s
@@ -2097,12 +2097,12 @@ void *beidou_task(void *arg)
         grx = inBeidouTime(grx, 0.1);
 
         // Update time counter
-        //printf("\rTime into run = %4.1f", subBeidouTime(grx, g0));
-        //fflush(stdout);
+        printf("\rTime into run = %4.1f", subBeidouTime(grx, g0));
+        fflush(stdout);
     }
     s->finished = true;
     free(iq_buff);
 
     exit:
-        return (NULL);
+    return (NULL);
 }
