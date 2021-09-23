@@ -1677,6 +1677,8 @@ int allocate_channel(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionou
 
 int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     beidou_time g0;
+    unsigned long week,sow;
+
     g0.week = bd_time.week;
     // TODO +0.05
     g0.second = (double)(((unsigned long)(bd_time.second+0.05))/3UL) * 3.0; // Align with the full frame length = 3 sec
@@ -1774,7 +1776,7 @@ void *beidou_task(void *arg)
     char navfile[MAX_CHAR] = "2021.1.3.txt";
     iTable = 0;
 
-    iduration = 3000;
+    iduration = 2000;
 
     //经纬高
     llh[0] = 40;
