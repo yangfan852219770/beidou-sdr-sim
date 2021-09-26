@@ -64,7 +64,7 @@
 // 载波频率转PRN速率
 #define CARR_TO_PRN (1.0/763.0)
 // 模拟的通道数量
-#define MAX_CHAN_SIM (5)
+#define MAX_CHAN_SIM (12)
 
 /*! \brief Maximum number of user motion points */
 #define USER_MOTION_SIZE (864000) // for 24 hours at 10Hz

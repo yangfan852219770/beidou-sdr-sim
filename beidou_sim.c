@@ -511,7 +511,7 @@ int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fn
     ieph = 0;
 
     // 读取导航电文
-    // TODO 当前只读取GEO卫星1-5
+    // TODO 当前只读取GEO卫星1-5,59,60
     while(1){
         if (NULL==fgets(str, MAX_CHAR, fp))
             break;
@@ -1284,7 +1284,8 @@ unsigned long convert_nav_msg_complement(long source, int bits){
 
     // 正数不用转换，直接操作符号位即可。0为正，1为负。
     if(source > 0){
-        result = (0 << (bits-1)) & source;
+        //result = (0 << (bits-1)) | source;
+        result = source;
     }
     else{
         sign_bit = 1 << (bits-1);
@@ -1333,7 +1334,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     long tgd1,tgd2;
 
 
-    unsigned long ura = 0UL;
+    unsigned long urai = 0UL;
 
     unsigned long wna;
     unsigned long toa;
@@ -1384,6 +1385,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
 
     aode = (unsigned long)(eph.aode);
     aodc = (unsigned long)(eph.aodc);
+    urai = (unsigned long)(eph.sv_acc);
     // 星历中deltan的单位是rad/s，导航电文是pi/s
     deltan = (long)(eph.deltan/POW2_M43/PI);
     cuc = (long)(eph.cuc/POW2_M31);
@@ -1442,10 +1444,11 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     alpha3_c = convert_nav_msg_complement(alpha3, 8);
     beta0_c = convert_nav_msg_complement(beta0, 8);
     beta1_c = convert_nav_msg_complement(beta1, 8);
-    beta2_c = convert_nav_msg_complement(beta0, 8);
+    beta2_c = convert_nav_msg_complement(beta2, 8);
     beta3_c = convert_nav_msg_complement(beta3, 8);
 
-    week = week & 0x1FFFUL;
+//    week = week & 0x1FFFUL;
+    week = (week+1) & 0x1FFFUL;
     second = second & 0xFFFFFUL;
     aodc = aodc & 0x1FUL;
     toc = toc & 0x1FFFFUL;
@@ -1472,7 +1475,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
      * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用p
      * AODC(5bit)，时钟数据龄期，暂定为 0
      */
-    sbf[0][1] = ( second & 0xFFF) << 18 | 0x1UL << 14 | 0 << 13 | aodc << 8;
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0x1UL << 14 | 0 << 13 | aodc << 8;
     /** 第三个字
      * URAI | WN | toc
      * URAI(4bit)，用户距离精度指数，暂定为 8
@@ -1486,14 +1489,14 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     * toc(后12bit)，时钟时间
     * TGD1(10bit) 星上设备时延差
     */
-    sbf[0][3] = (toc & 0xFFF) << 18 | tgd1 << 8;
+    sbf[0][3] = (toc & 0xFFF) << 18 | tgd1_c << 8;
     /**
      * 第五个字
      * TGD2 | Rev
      * TGD2(后6bit) 星上设备时延差
      * Rev 保留字
      */
-    sbf[0][4] = tgd2 << 20 | 0 << 8;
+    sbf[0][4] = tgd2_c << 20 | 0 << 8;
 
     ////////////////////////////////////////////////////////////
     // 第一帧 第二字
@@ -1684,6 +1687,20 @@ int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
     g0.second = (double)(((unsigned long)(bd_time.second+0.05))/3UL) * 3.0; // Align with the full frame length = 3 sec
     chan->g0 = g0; // Data bit reference time
 
+    sow = g0.second;
+    /*
+    for(int i = 0; i < 5; ++i){
+        // sow 8 bits
+        chan->subframe[i][0] = (chan->subframe[i][0] & 0x3ffff00fUL) | (sow >> 12) << 4;
+        // sow 12 bits
+        chan->subframe[i][1] = (chan->subframe[i][1] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
+        // sow 8 bits
+        chan->subframe[i][5] = (chan->subframe[i][5] & 0x3ffff00fUL) | (sow >> 12) << 4;
+        // sow 12 bit
+        chan->subframe[i][6] = (chan->subframe[i][6] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
+    }
+    */
+
     for(int i = 0; i < 5; ++i){
         for(int j = 0; j < 10; ++j){
             if(j % 5 != 0)
@@ -1774,9 +1791,10 @@ void *beidou_task(void *arg)
     int gain[MAX_CHAN_SIM];
     double timer = 0;
     char navfile[MAX_CHAR] = "2021.1.3.txt";
+
     iTable = 0;
 
-    iduration = 2000;
+    iduration = 1500;
 
     //经纬高
     llh[0] = 40;
@@ -1986,6 +2004,7 @@ void *beidou_task(void *arg)
 
             for(i = 0; i < MAX_CHAN_SIM; ++i){
                 if(chan[i].prn_num > 0){
+                    
                     iTable = (chan[i].carr_phase >> 16) & 511;
 
                     ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
@@ -2058,7 +2077,7 @@ void *beidou_task(void *arg)
         pthread_cond_signal(&(s->fifo_read_ready));
 
         // TODO +0.05 reason
-        igrx = (int)(grx.second*10.0+0.05);
+        igrx = (int)(grx.second*10.0+0.5);
 
         //TODO SOW+3s
         if (igrx%30==0) // Every 3 seconds
