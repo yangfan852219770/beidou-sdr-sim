@@ -5,7 +5,8 @@
 /*! \brief Maximum length of a line in a text file (RINEX, motion) */
 #define MAX_CHAR (100)
 // TODO RINEX 文件中GEO卫星的最大数量
-#define MAX_SAT (5)
+#define MAX_SAT (60)
+#define MAX_SAT_EPH (60)
 #define EPHEM_ARRAY_SIZE (13) // for daily GPS broadcast ephemers file (brdc)
 
 #define GM_EARTH 3.986004418e14
@@ -255,7 +256,9 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WO
  * @param eph
  * @return
  */
-int allocate_channel(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask);
+int allocate_channel_D2(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask);
+
+int allocate_channel_D1(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask);
 
 /**
  * 生成导航信息
@@ -264,7 +267,9 @@ int allocate_channel(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionou
  * @param init
  * @return
  */
-int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init);
+int nav_msg_gen_D2(beidou_time bd_time, beidou_channel *chan, int init);
+
+int nav_msg_gen_D1(beidou_time bd_time, beidou_channel *chan, int init);
 
 void init(beidou_channel *chan, int prn_number);
 
@@ -277,12 +282,13 @@ void *beidou_task(void *arg);
 
 /**
  * 读取星历内容
+ * @param flag 1为D1电文，2为D2
  * @param eph
  * @param ionoutc
  * @param fname
  * @return
  */
-int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fname);
+int readRinexNavAll(int flag, ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fname);
 
 
 /**

@@ -78,14 +78,14 @@ int cosTable512[] = {
         245, 246, 247, 247, 248, 248, 248, 249, 249, 249, 249, 250, 250, 250, 250, 250
 };
 
-/*
+
 double ant_pat_db[37] = {
         0.00,  0.00,  0.22,  0.44,  0.67,  1.11,  1.56,  2.00,  2.44,  2.89,  3.56,  4.22,
         4.89,  5.56,  6.22,  6.89,  7.56,  8.22,  8.89,  9.78, 10.67, 11.56, 12.44, 13.33,
         14.44, 15.56, 16.67, 17.78, 18.89, 20.00, 21.33, 22.67, 24.00, 25.56, 27.33, 29.33,
         31.56
 };
-*/
+
 int allocatedSat[MAX_SAT];
 
 /*! \brief Subtract two vectors of double
@@ -411,7 +411,7 @@ beidou_time inBeidouTime(beidou_time g0, double dt)
 }
 
 // 读取星历
-int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fname)
+int readRinexNavAll(int flag, ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fname)
 {
     FILE *fp;
     int ieph;
@@ -520,8 +520,21 @@ int readRinexNavAll(ephemeris eph[][MAX_SAT], ionoutc_t *ionoutc, const char *fn
         tmp[2] = 0;
         // atoi()函数，将字符串转为int
         sv = atoi(tmp)-1;
-        // TODO 只读GEO卫星1-5
-        if(sv >= 5){
+        //只读GEO卫星1-5
+        if(sv >= 5 && flag == 2){
+            // 跳过后面的7行
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            fgets(str, MAX_CHAR, fp);
+            continue;
+        }
+
+        // 读MEO卫星
+        if(sv < 5 && flag == 1){
             // 跳过后面的7行
             fgets(str, MAX_CHAR, fp);
             fgets(str, MAX_CHAR, fp);
@@ -896,48 +909,6 @@ void computeRange(range_t *rho, ephemeris eph, ionoutc_t *ionoutc, beidou_time g
     return;
 }
 
-/*! \brief Compute the code phase for a given channel (satellite)
- *  \param chan Channel on which we operate (is updated)
- *  \param[in] rho1 Current range, after \a dt has expired
- *  \param[in dt delta-t (time difference) in seconds
- */
-void computeCodePhase(beidou_channel *chan, range_t rho1, double dt)
-{
-    double ms;
-    int ims;
-    double rhorate;
-
-    // Pseudorange rate.
-    rhorate = (rho1.range - chan->rho0.range)/dt;
-
-    // Carrier and code frequency.
-    chan->f_carr = -rhorate/LAMBDA_B1;
-    chan->f_code = PRN_CODE_FREQ + chan->f_carr*CARR_TO_PRN;
-
-    // Initial code phase and data bit counters.
-    ms = ((subBeidouTime(chan->rho0.g,chan->g0)+0.6) - chan->rho0.range/SPEED_OF_LIGHT)*1000.0;
-
-    ims = (int)ms;
-    chan->code_phase = (ms-(double)ims)*PRN_SEQ_LEN; // in chip
-
-    chan->iword = ims/60; // 1 word = 30 bits = 60 ms
-
-    ims -= chan->iword*60;
-
-    chan->ibit = ims/2; // 1 bit = 2 code = 2 ms
-    ims -= chan->ibit*2;
-
-    chan->icode = ims; // 1 code = 1 ms
-
-    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
-    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
-
-    // Save current pseudorange
-    chan->rho0 = rho1;
-
-    return;
-}
-
 /*! \brief Compute dot-product of two vectors
  *  \param[in] x1 First multiplicand
  *  \param[in] x2 Second multiplicand
@@ -1185,94 +1156,6 @@ void UTC2beidou_time(const UTC_time *U_time, beidou_time *bd_time){
     return;
 }
 
-void eph2sbf_D1(const ephemeris eph, const ionoutc_t ion, unsigned long sbf[][WORD_NUM]){
-
-    //TODO 目前只模仿第一帧
-
-    // 帧同步码
-    unsigned long pre = 0x712UL;
-    // 保留字段
-    unsigned long rev = 0UL;
-    /**
-     * 设置模拟的固定时间，模拟的时间为:2021.1.1 0:0:0
-     * second 19 bits
-     * week 10 bits
-     * mask 12 bits, 每位都为1，取second的后12位
-     */
-    unsigned long second = 0x69780UL;
-    unsigned long week = 0x30EUL;
-    //TODO 暂定为一天内的秒数
-    unsigned long toc = 0UL;
-    // TODO TGD1 暂存整数，82, 存补码形式
-    unsigned long TGD1 = 0x82UL;
-    // TODO TGD1 暂存整数，-15, 存补码形式
-    unsigned long TGD2 = 0x3F1UL;
-
-    ////////////////////////////////////////////////////////////
-    // 第一帧
-    ////////////////////////////////////////////////////////////
-
-    /**
-     * 第一个字
-     * Pre | Rev | FraId | SOW(前8bit)
-     * Pre(11bit)，帧同步码，默认为 11100010010
-     * Rev(4bit)，保留字段，未参与计算
-     * FraId(3bit)，子帧计数，第一帧为 1
-     * SOW(前8bit)，周内秒计数
-     */
-    sbf[0][0] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    /**
-     * 第二个字
-     * SOW | SatH1 | AODC | URAI
-     * SOW(后12bit)，周内秒计数
-     * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
-     * AODC(5bit)，时钟数据龄期，暂定为 27
-     * URAI(4bit)，用户距离精度指数，暂定为 2
-     */
-    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0 << 17 | 0x1BUL << 12 | 0x2UL << 8;
-    /**
-     * 第三个字
-     * WN | toc
-     * WN(13bit)，整周计数
-     * toc(前9bit)，时钟时间
-     */
-    sbf[0][2] = week << 17 | toc << 8;
-    /**
-     * 第四个字
-     * toc | TGD1 | TGD2
-     * toc(后8bit)，时钟时间
-     * TGD1(10bit) 星上设备时延差
-     * TGD2(前4bit) 星上设备时延差
-     */
-    sbf[0][3] = (toc & 0xFF) << 22 | TGD1 << 12 | (TGD2 >> 6) << 8;
-    /**
-     * 第五个字
-     * TGD2 | a0 | a1
-     * TGD2(后6bit) 星上设备时延差
-     */
-    sbf[0][4] = (TGD2 & 0x3FUL) << 24;
-    /**
-     * 第六个字
-     */
-    sbf[0][5] = pre << 19 | rev << 15 | 0x1UL << 12 | (second >> 12) << 4;
-    /**
-     * 第七个字
-     */
-    sbf[0][6] = ( second & 0xFFFUL) << 18 | 0x1UL << 17 | 0x1BUL << 12 | 0x2UL << 8;
-    /**
-      * 第八个字
-      */
-    sbf[0][7] = week << 17 | toc << 8;
-    /**
-      * 第九个字
-      */
-    sbf[0][8] = (toc & 0xFF) << 22 | TGD1 << 12 | (TGD2 >> 6) << 8;
-    /**
-      * 第十个字
-      */
-    sbf[0][9] = (TGD2 & 0x3FUL) << 24;
-}
-
 unsigned long convert_nav_msg_complement(long source, int bits){
     unsigned long mask;
     unsigned long result;
@@ -1304,6 +1187,1320 @@ unsigned long convert_nav_msg_complement(long source, int bits){
     //printf("转换后的结果为:%ld\n",result);
 
     return result;
+}
+
+int checkSatVisibility(ephemeris eph, beidou_time g, double *xyz, double elvMask, double *azel)
+{
+    double llh[3],neu[3];
+    double pos[3],vel[3],clk[3],los[3];
+    double tmat[3][3];
+
+    if (eph.vflag != 1)
+        return (-1); // Invalid
+
+    xyz2llh(xyz,llh);
+    ltcmat(llh, tmat);
+
+    satpos(eph, g, pos, vel, clk);
+    subVect(los, pos, xyz);
+    ecef2neu(los, tmat, neu);
+    neu2azel(azel, neu);
+
+    //return 1;
+
+    if (azel[1]*R2D > elvMask)
+        return (1); // Visible
+    // else
+    return (0); // Invisible
+}
+
+
+void init(beidou_channel *chan, int prn_number){
+
+    // TODO 暂时为静态
+
+    chan->f_carr = 108.158;
+    chan->f_code = 2046000.14;
+    chan->code_phase = 10.34;
+
+    chan->iword = 9;
+    chan->ibit = 23;
+    chan->icode = 1;
+
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
+    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
+
+    return;
+}
+
+void *beidou_task(void *arg)
+{
+    beidou_task_D2(arg);
+}
+
+// D1 start
+
+void beidou_task_D1(void *arg)
+{
+    sim_t *s = (sim_t *)arg;
+
+    int sv;
+
+    ephemeris eph[EPHEM_ARRAY_SIZE][MAX_SAT];
+    int neph,ieph;
+    beidou_time g0;
+
+    double llh[3];
+
+    beidou_time bdt;
+    // 模拟4个信道
+    beidou_channel chan[MAX_CHAN_SIM];
+    double elvmask = 0.0; // in degree
+
+    int ip, qp;
+    int iTable;
+    short *iq_buff = NULL;
+    int iq_buff_size;
+    beidou_time grx;
+    double delt;
+    int isamp;
+
+    int iumd;
+    int numd;
+    double **xyz;
+
+    UTC_time t0,tmin,tmax;
+    beidou_time gmin,gmax;
+    double dt;
+    int igrx;
+
+    int iduration;
+
+    // TODO ionoutc目前不用
+    ionoutc_t ionoutc;
+
+    double tmat[3][3];
+
+    int i,j;
+
+    int gain[MAX_CHAN_SIM];
+    double path_loss;
+    double ant_gain;
+    int ibs;
+    double ant_pat[37];
+
+    double timer = 0;
+    char navfile[MAX_CHAR] = "2021.1.3.txt";
+    iTable = 0;
+
+    iduration = 1000;
+
+    //经纬高
+    llh[0] = 40;
+    llh[1] = 90;
+    llh[2] = 100;
+
+    iq_buff_size = NUM_IQ_SAMPLES;
+    iq_buff = calloc(2*iq_buff_size, 2);
+    if (iq_buff==NULL)
+    {
+        printf("ERROR: 分配 I/Q buff失败.\n");
+        goto exit;
+    }
+
+    delt = 1.0/(double)TX_SAMPLERATE;
+
+    // 电离层误差
+    ionoutc.enable = true;
+
+    ////////////////////////////////////////////////////////////
+    // Receiver position
+    ////////////////////////////////////////////////////////////
+    // Allocate user motion array
+    xyz = (double **)malloc(USER_MOTION_SIZE * sizeof(double**));
+
+    if (xyz==NULL)
+    {
+        printf("ERROR: Faild to allocate user motion array.\n");
+        goto exit;
+    }
+
+    for (i=0; i<USER_MOTION_SIZE; i++)
+    {
+        xyz[i] = (double *)malloc(3 * sizeof(double));
+
+        if (xyz[i]==NULL)
+        {
+            for (j=i-1; j>=0; j--)
+                free(xyz[i]);
+
+            printf("ERROR: Faild to allocate user motion array.\n");
+            goto exit;
+        }
+    }
+
+    // Static geodetic coordinates input mode: "-l"
+    printf("Using static location mode.\n");
+    llh2xyz(llh,xyz[0]); // Convert llh to xyz
+
+    numd = iduration;
+
+    for (iumd=1; iumd<numd; iumd++)
+    {
+        xyz[iumd][0] = xyz[0][0];
+        xyz[iumd][1] = xyz[0][1];
+        xyz[iumd][2] = xyz[0][2];
+    }
+
+    // Initialize the local tangential matrix for interactive mode
+    ltcmat(llh, tmat);
+
+    printf("xyz = %11.1f, %11.1f, %11.1f\n", xyz[0][0], xyz[0][1], xyz[0][2]);
+    printf("llh = %11.6f, %11.6f, %11.1f\n", llh[0]*R2D, llh[1]*R2D, llh[2]);
+
+    neph = readRinexNavAll(1, eph, &ionoutc, navfile);
+
+    if (neph==0)
+    {
+        printf("ERROR: No ephemeris available.\n");
+        goto exit;
+    }
+
+    if (ionoutc.vflag==true)
+    {
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.alpha0, ionoutc.alpha1, ionoutc.alpha2, ionoutc.alpha3);
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.beta0, ionoutc.beta1, ionoutc.beta2, ionoutc.beta3);
+        printf("   %19.11e %19.11e  %9d %9d\n",
+               ionoutc.A0, ionoutc.A1, ionoutc.tot, ionoutc.wnt);
+        printf("%6d\n", ionoutc.dtls);
+    }
+
+    gmin.second = 0.0;
+    gmax.second = 0.0;
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if (eph[0][sv].vflag==1)
+        {
+            gmin = eph[0][sv].toc;
+            tmin = eph[0][sv].t;
+            break;
+        }
+    }
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if (eph[neph-1][sv].vflag == 1)
+        {
+            gmax = eph[neph-1][sv].toc;
+            tmax = eph[neph-1][sv].t;
+            break;
+        }
+    }
+
+    g0 = gmin;
+    t0 = tmin;
+
+    printf("tmin = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           tmin.year, tmin.month, tmin.day, tmin.hour, tmin.minute, tmin.second,
+           gmin.week, gmin.second);
+    printf("tmax = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           tmax.year, tmax.month, tmax.day, tmax.hour, tmax.minute, tmax.second,
+           gmax.week, gmax.second);
+
+    printf("Start time = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           t0.year, t0.month, t0.day, t0.hour, t0.minute, t0.second, g0.week, g0.second);
+    printf("Duration = %.1f [sec]\n", ((double)numd)/10.0);
+
+    // Select the current set of ephemerides
+    ieph = -1;
+    for (i=0; i<neph; i++)
+    {
+        for (sv=0; sv<MAX_SAT; sv++)
+        {
+            if (eph[i][sv].vflag == 1)
+            {
+                dt = subBeidouTime(g0, eph[i][sv].toc);
+                if (dt>=-SECONDS_IN_HOUR && dt<SECONDS_IN_HOUR)
+                {
+                    ieph = i;
+                    break;
+                }
+            }
+        }
+
+        if (ieph>=0) // ieph has been set
+            break;
+    }
+
+    if (ieph == -1)
+    {
+        printf("ERROR: No current set of ephemerides has been found.\n");
+        goto exit;
+    }
+
+    ////////////////////////////////////////////////////////////
+    // 初始化发送信道
+    ////////////////////////////////////////////////////////////
+
+    // 清除信道信息
+    for(i = 0; i < MAX_CHAN_SIM; ++i)
+        chan[i].prn_num = 0;
+
+    // Clear satellite allocation flag
+    for (sv=0; sv<MAX_SAT; sv++)
+        allocatedSat[sv] = -1;
+
+    // Initial reception time
+    grx = inBeidouTime(g0, 0.0);
+
+    // 分配信道
+    allocate_channel_D1(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
+
+    for (i=0; i<37; i++)
+        ant_pat[i] = pow(10.0, -ant_pat_db[i]/20.0);
+
+    printf("模拟的卫星号:");
+    for(i = 0; i < MAX_CHAN_SIM; ++i)
+        if(chan[i].prn_num > 0)
+            printf("%d,",chan[i].prn_num);
+    putchar('\n');
+
+    for(i=0; i<MAX_CHAN_SIM; i++)
+    {
+        if (chan[i].prn_num>0)
+            printf("%02d %6.1f %5.1f %11.1f %5.1f\n", chan[i].prn_num,
+                   chan[i].azel[0]*R2D, chan[i].azel[1]*R2D, chan[i].rho0.d, chan[i].rho0.iono_delay);
+    }
+
+    // Update receiver time
+    grx = inBeidouTime(grx, 0.1);
+
+    for(iumd=1; iumd<numd; iumd++){
+        //TODO 天线增益、路径损失
+
+        for (i=0; i<MAX_CHAN_SIM; i++)
+        {
+            if (chan[i].prn_num>0)
+            {
+                // Refresh code phase and data bit counters
+                range_t rho;
+                sv = chan[i].prn_num-1;
+
+                // Current pseudorange
+                computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[iumd]);
+                chan[i].azel[0] = rho.azel[0];
+                chan[i].azel[1] = rho.azel[1];
+
+                // Update code phase and data bit counters
+                computeCodePhase_D1(&chan[i], rho, 0.1);
+                chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
+
+                // Path loss 21528000
+                path_loss = 21528000.0/rho.d;
+
+                ibs = (int)((90-rho.azel[1]*R2D)/5.0);
+                ant_gain = ant_pat[ibs];
+                gain[i] = (int)(path_loss*ant_gain*128.0);
+            }
+        }
+        // 生成发射数据
+        for(isamp = 0; isamp < iq_buff_size; ++isamp){
+            int i_acc = 0;
+            int q_acc = 0;
+
+            for(i = 0; i < MAX_CHAN_SIM; ++i){
+                if(chan[i].prn_num > 0){
+                    iTable = (chan[i].carr_phase >> 16) & 511;
+
+                    ip = chan[i].NH_code_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
+                    qp = chan[i].NH_code_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
+
+                    i_acc += ip;
+                    q_acc += qp;
+
+                    ////////////////////////////////////////////////////////////
+                    // PRN码，NH码，导航信息 处理
+                    ////////////////////////////////////////////////////////////
+                    // 更新PRN码相位
+                    chan[i].code_phase += chan[i].f_code * delt;
+
+                    if(chan[i].code_phase >= PRN_SEQ_LEN){
+                        chan[i].code_phase -= PRN_SEQ_LEN;
+                        ++chan[i].icode;
+                        ++chan[i].iNH_code;
+                        // 20 prn_code = 1 nav bit
+                        if(chan[i].icode >= 20){
+                            //printf("prn=%d,iword=%d,ibit=%d\n",chan[i].prn_num,chan[i].iword, chan[i].ibit);
+                            chan[i].icode = 0;
+                            chan[i].iNH_code = 0;
+                            ++chan[i].ibit;
+                            // 30 bits = 1 word
+                            if(chan[i].ibit >= WORD_LEN){
+                                chan[i].ibit = 0;
+                                //printf("prn=%d, iword= %d\n",chan[i].prn_num, chan[i].iword);
+                                ++chan[i].iword;
+                                // TODO D2 5个word 等于1帧
+                                if(chan[i].iword >= N_WORD){
+                                    chan[i].iword = 0;
+                                }
+                            }
+                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] * 2 -1;
+                        }
+                        chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL ) * 2 - 1;
+                    }
+                    // PRN数据处理
+                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] * 2 -1;
+                    chan[i].carr_phase += chan[i].carr_phasestep;
+                }
+            }
+            // Scaled by 2^7
+            //i_acc = (i_acc+64)>>7;
+            //q_acc = (q_acc+64)>>7;
+
+            // 存储I/Q buff
+            iq_buff[isamp*2] = (short)i_acc;
+            iq_buff[isamp*2+1] = (short)q_acc;
+        }
+        ////////////////////////////////////////////////////////////
+        // 写入发射缓存
+        ///////////////////////////////////////////////////////////
+
+        if(!s->beidou.ready){
+            printf("Bei Dou signal is ready.\n");
+            s->beidou.ready = 1;
+            pthread_cond_signal(&(s->beidou.initialization_done));
+        }
+
+        // 等待FIFO缓存
+        pthread_mutex_lock(&(s->beidou.lock));
+        while (!is_fifo_write_ready(s))
+            pthread_cond_wait(&(s->fifo_write_ready), &(s->beidou.lock));
+        pthread_mutex_unlock(&(s->beidou.lock));
+        // 向FIFO缓存写入
+        memcpy(&(s->fifo[s->head * 2]), iq_buff, NUM_IQ_SAMPLES * 2 * sizeof(short));
+
+        s->head += (long)NUM_IQ_SAMPLES;
+        if (s->head >= FIFO_LENGTH)
+            s->head -= FIFO_LENGTH;
+        pthread_cond_signal(&(s->fifo_read_ready));
+
+        // TODO +0.5 reason
+        igrx = (int)(grx.second*10.0+0.5);
+
+        //TODO SOW+30s
+        if (igrx%300==0) // Every 30 seconds
+        {
+            // Update navigation message
+            for (i=0; i<MAX_CHAN_SIM; i++)
+            {
+                if (chan[i].prn_num>0)
+                    nav_msg_gen_D1(grx, &chan[i], 0);
+            }
+
+            // Refresh ephemeris and subframes
+            // Quick and dirty fix. Need more elegant way.
+            for (sv=0; sv<MAX_SAT; sv++)
+            {
+                if (eph[ieph+1][sv].vflag==1)
+                {
+                    dt = subBeidouTime(eph[ieph+1][sv].toc, grx);
+                    if (dt<SECONDS_IN_HOUR)
+                    {
+                        ieph++;
+
+                        for (i=0; i<MAX_CHAN_SIM; i++)
+                        {
+                            // Generate new subframes if allocated
+                            if (chan[i].prn_num!=0)
+                                eph2sbf_D1(eph[ieph][chan[i].prn_num-1],ionoutc,chan[i].subframe);
+                        }
+                    }
+
+                    break;
+                }
+            }
+            // Update channel allocation
+            allocate_channel_D1(chan, eph[ieph], ionoutc, grx, xyz[iumd], elvmask);
+        }
+        // Update receiver time
+        grx = inBeidouTime(grx, 0.1);
+
+        // Update time counter
+        printf("\rTime into run = %4.1f", subBeidouTime(grx, g0));
+        fflush(stdout);
+    }
+    s->finished = true;
+    free(iq_buff);
+
+    exit:
+    return (NULL);
+}
+
+int nav_msg_gen_D1(beidou_time bd_time, beidou_channel *chan, int init){
+    beidou_time g0;
+    unsigned long week,sow;
+
+    g0.week = bd_time.week;
+    // TODO +0.05
+    g0.second = (double)(((unsigned long)(bd_time.second+0.5))/30UL) * 30.0; // Align with the full frame length = 3 sec
+    chan->g0 = g0; // Data bit reference time
+
+    sow = g0.second;
+
+    for(int i = 0; i < 5; ++i){
+        for(int j = 0; j < 10; ++j){
+            if(j != 0)
+                nav_word_gen(chan->subframe[i][j], false, chan->subframe_word_bits[(i*10+j)]);
+            else
+                nav_word_gen(chan->subframe[i][j], true, chan->subframe_word_bits[(i*10+j)]);
+        }
+    }
+
+    for(int i = 0; i < 10; ++i)
+        for(int j = 0; j < 30; ++j)
+            chan->subframe_word_bits[50+i][j] = chan->subframe_word_bits[i][j];
+    return 0;
+}
+
+int allocate_channel_D1(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask)
+{
+
+    int nsat=0;
+    int i,sv;
+    double azel[2];
+
+    range_t rho;
+    double ref[3]={0.0};
+    double r_ref,r_xyz;
+    double phase_ini;
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if(checkSatVisibility(eph[sv], grx, xyz, 0.0, azel)==1)
+        {
+            nsat++; // Number of visible satellites
+
+            if (allocatedSat[sv]==-1) // Visible but not allocated
+            {
+                // Allocated new satellite
+                for (i=0; i<MAX_CHAN_SIM; i++)
+                {
+                    if (chan[i].prn_num==0)
+                    {
+                        // Initialize channel
+                        chan[i].prn_num = sv+1;
+                        chan[i].azel[0] = azel[0];
+                        chan[i].azel[1] = azel[1];
+
+                        // C/A code generation
+                        prn_code_gen(chan[i].prn_code, chan[i].prn_num);
+                        //TODO Generate subframe
+
+                        eph2sbf_D1(eph[sv], ionoutc, chan[i].subframe);
+
+                        //TODO Generate navigation message
+                        nav_msg_gen_D1(grx, &chan[i], 1);
+                        // Initialize pseudorange
+                        computeRange(&rho, eph[sv], &ionoutc, grx, xyz);
+                        chan[i].rho0 = rho;
+
+                        // Initialize carrier phase
+                        r_xyz = rho.range;
+
+                        computeRange(&rho, eph[sv], &ionoutc, grx, ref);
+                        r_ref = rho.range;
+
+                        phase_ini = (2.0*r_ref - r_xyz)/LAMBDA_B1;
+                        phase_ini -= floor(phase_ini);
+                        chan[i].carr_phase = (unsigned int)(512 * 65536.0 * phase_ini);
+                        // Done.
+                        break;
+                    }
+                }
+
+                // Set satellite allocation channel
+                if (i<MAX_CHAN_SIM)
+                    allocatedSat[sv] = i;
+            }
+        }
+        else if (allocatedSat[sv]>=0) // Not visible but allocated
+        {
+            // Clear channel
+            chan[allocatedSat[sv]].prn_num = 0;
+
+            // Clear satellite allocation flag
+            allocatedSat[sv] = -1;
+        }
+    }
+    return(nsat);
+}
+
+void eph2sbf_D1(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[][WORD_NUM]){
+
+    //TODO 目前只模仿第一帧
+
+    unsigned long wn;
+    unsigned long toe;
+    unsigned long toc;
+    unsigned long aode;
+    unsigned long aodc;
+    long deltan;
+    long cuc;
+    long cus;
+    long cic;
+    long cis;
+    long crc;
+    long crs;
+    unsigned long ecc;
+    unsigned long sqrta;
+    long m0;
+    long omg0;
+    long inc0;
+    long omega;
+    long omgdot;
+    long idot;
+    long af0;
+    long af1;
+    long af2;
+    long tgd1,tgd2;
+
+
+    unsigned long ura = 0UL;
+
+    unsigned long wna;
+    unsigned long toa;
+
+    signed long alpha0,alpha1,alpha2,alpha3;
+    signed long beta0,beta1,beta2,beta3;
+    signed long A0,A1;
+    signed long dtls,dtlsf;
+    unsigned long tot,wnt,wnlsf,dn;
+
+    // 转换后的补码
+    unsigned long deltan_c;
+    unsigned long cuc_c;
+    unsigned long cus_c;
+    unsigned long cic_c;
+    unsigned long cis_c;
+    unsigned long crc_c;
+    unsigned long crs_c;
+
+    unsigned long m0_c;
+    unsigned long omg0_c;
+    unsigned long inc0_c;
+    unsigned long omega_c;
+    unsigned long omgdot_c;
+    unsigned long idot_c;
+    unsigned long af0_c;
+    unsigned long af1_c;
+    unsigned long af2_c;
+    unsigned long tgd1_c,tgd2_c;
+
+    unsigned long alpha0_c,alpha1_c,alpha2_c,alpha3_c;
+    unsigned long beta0_c,beta1_c,beta2_c,beta3_c;
+
+    unsigned long second;
+    unsigned long week;
+
+    // 帧同步码
+    unsigned long pre = 0x712;
+
+    // TODO BDT的周内秒和周数
+    second = (unsigned long)(eph.toc.second);
+    week = (unsigned long)(eph.toc.week);
+
+    // 有缩放因子，所以需要除
+    // TODO modify
+    toe = (unsigned long)(eph.toe.second/8.0);
+    toc = (unsigned long)(eph.toc.second/8.0);
+
+    aode = (unsigned long)(eph.aode);
+    aodc = (unsigned long)(eph.aodc);
+    // 星历中deltan的单位是rad/s，导航电文是pi/s
+    deltan = (long)(eph.deltan/POW2_M43/PI);
+    cuc = (long)(eph.cuc/POW2_M31);
+    cus = (long)(eph.cus/POW2_M31);
+    cic = (long)(eph.cic/POW2_M31);
+    cis = (long)(eph.cis/POW2_M31);
+    crc = (long)(eph.crc/POW2_M6);
+    crs = (long)(eph.crs/POW2_M6);
+    ecc = (unsigned long)(eph.ecc/POW2_M33);
+    sqrta = (unsigned long)(eph.sqrta/POW2_M19);
+    m0 = (long)(eph.m0/POW2_M31/PI);
+    omg0 = (long)(eph.omg0/POW2_M31/PI);
+    inc0 = (long)(eph.inc0/POW2_M31/PI);
+    omega = (long)(eph.omega/POW2_M31/PI);
+    omgdot = (long)(eph.omgdot/POW2_M43/PI);
+    idot = (long)(eph.idot/POW2_M43/PI);
+    af0 = (long)(eph.af0/POW2_M33);
+    af1 = (long)(eph.af1/POW2_M50);
+    af2 = (long)(eph.af2/POW2_M66);
+    tgd1 = (long)(eph.tgd1/0.1);
+    tgd2 = (long)(eph.tgd2/0.1);
+
+    // 电离层改正数
+    alpha0 = (signed long)round(ionoutc.alpha0/POW2_M30);
+    alpha1 = (signed long)round(ionoutc.alpha1/POW2_M27);
+    alpha2 = (signed long)round(ionoutc.alpha2/POW2_M24);
+    alpha3 = (signed long)round(ionoutc.alpha3/POW2_M24);
+    beta0 = (signed long)round(ionoutc.beta0/2048.0);
+    beta1 = (signed long)round(ionoutc.beta1/16384.0);
+    beta2 = (signed long)round(ionoutc.beta2/65536.0);
+    beta3 = (signed long)round(ionoutc.beta3/65536.0);
+
+    // 将数据转换为导航电文所要求的补码格式
+    af0_c = convert_nav_msg_complement(af0,24);
+    af1_c = convert_nav_msg_complement(af1, 22);
+    af2_c = convert_nav_msg_complement(af2, 11);
+    tgd1_c = convert_nav_msg_complement(tgd1, 10);
+    tgd2_c = convert_nav_msg_complement(tgd2, 10);
+    omega_c = convert_nav_msg_complement(omega, 32);
+    deltan_c = convert_nav_msg_complement(deltan,16);
+    m0_c = convert_nav_msg_complement(m0, 32);
+    omg0_c = convert_nav_msg_complement(omg0, 32);
+    omgdot_c = convert_nav_msg_complement(omgdot, 24);
+    inc0_c = convert_nav_msg_complement(inc0, 32);
+    idot_c = convert_nav_msg_complement(idot, 14);
+    cuc_c = convert_nav_msg_complement(cuc, 18);
+    cus_c = convert_nav_msg_complement(cus, 18);
+    crc_c = convert_nav_msg_complement(crc, 18);
+    crs_c = convert_nav_msg_complement(crs, 18);
+    cic_c = convert_nav_msg_complement(cic, 18);
+    cis_c = convert_nav_msg_complement(cis, 18);
+
+    alpha0_c = convert_nav_msg_complement(alpha0, 8);
+    alpha1_c = convert_nav_msg_complement(alpha1, 8);
+    alpha2_c = convert_nav_msg_complement(alpha2, 8);
+    alpha3_c = convert_nav_msg_complement(alpha3, 8);
+    beta0_c = convert_nav_msg_complement(beta0, 8);
+    beta1_c = convert_nav_msg_complement(beta1, 8);
+    beta2_c = convert_nav_msg_complement(beta0, 8);
+    beta3_c = convert_nav_msg_complement(beta3, 8);
+
+    week = (week+1) & 0x1FFFUL;
+    second = second & 0xFFFFFUL;
+    aodc = aodc & 0x1FUL;
+    toc = toc & 0x1FFFFUL;
+    toe = toe & 0x1FFFFUL;
+    aode = aode & 0x1FUL;
+
+    ////////////////////////////////////////////////////////////
+    // 第一帧
+    ////////////////////////////////////////////////////////////
+
+    /**
+     * 第一个字
+     * Pre | Rev | FraId | SOW(前8bit)
+     * Pre(11bit)，帧同步码，默认为 11100010010
+     * Rev(4bit)，保留字段，未参与计算
+     * FraId(3bit)，子帧计数，第一帧为 1
+     * SOW(前8bit)，周内秒计数
+     */
+    sbf[0][0] = pre << 19 | 0 << 15 | 0x1UL << 12 | (second >> 12) << 4;
+    /**
+     * 第二个字
+     * SOW | SatH1 | AODC | URAI
+     * SOW(后12bit)，周内秒计数
+     * SatH1(1bit)，卫星健康表示，0表示可用，1表示不可用
+     * AODC(5bit)，时钟数据龄期，暂定为 27
+     * URAI(4bit)，用户距离精度指数，暂定为 2
+     */
+    sbf[0][1] = ( second & 0xFFFUL) << 18 | 0 << 17 | aodc << 12 | 0x2UL << 8;
+    /**
+     * 第三个字
+     * WN | toc
+     * WN(13bit)，整周计数
+     * toc(前9bit)，时钟时间
+     */
+    sbf[0][2] = week << 17 | toc << 8;
+    /**
+     * 第四个字
+     * toc | TGD1 | TGD2
+     * toc(后8bit)，时钟时间
+     * TGD1(10bit) 星上设备时延差
+     * TGD2(前4bit) 星上设备时延差
+     */
+    sbf[0][3] = (toc & 0xFF) << 22 | tgd1 << 12 | (tgd2 >> 6) << 8;
+    /**
+     * 第五个字
+     * TGD2 | a0 | a1
+     * TGD2(后6bit) 星上设备时延差
+     */
+    sbf[0][4] = (tgd2 & 0x3FUL) << 24 | alpha0_c << 16 | alpha1_c << 8;
+    /**
+     * 第六个字
+     */
+    sbf[0][5] = alpha2_c << 22 | alpha3_c << 14 | (beta0_c >> 2) << 8;
+    /**
+     * 第七个字
+     */
+     sbf[0][6] = (beta0_c & 0x3UL) << 28 | beta1_c << 20 | beta2_c << 12 | (beta3_c >> 4) << 8;
+    /**
+      * 第八个字
+      */
+    sbf[0][7] = (beta3_c & 0xFUL) << 26 | af2_c << 15 | (af0_c >> 17) << 8;
+    /**
+      * 第九个字
+      */
+    sbf[0][8] = (af0_c & 0x1FFFFUL) << 13 | (af1_c >> 17) << 8;
+    /**
+      * 第十个字
+      */
+    sbf[0][9] = (af1_c & 0x1FFFFUL) << 13 | aode << 8;
+
+}
+
+void computeCodePhase_D1(beidou_channel *chan, range_t rho1, double dt)
+{
+    double ms;
+    int ims;
+    double rhorate;
+
+    // Pseudorange rate.
+    rhorate = (rho1.range - chan->rho0.range)/dt;
+
+    // Carrier and code frequency.
+    chan->f_carr = -rhorate/LAMBDA_B1;
+    chan->f_code = PRN_CODE_FREQ + chan->f_carr*CARR_TO_PRN;
+
+    // Initial code phase and data bit counters.
+    ms = ((subBeidouTime(chan->rho0.g,chan->g0)+6.0) - chan->rho0.range/SPEED_OF_LIGHT)*1000.0;
+
+    ims = (int)ms;
+    chan->code_phase = (ms-(double)ims)*PRN_SEQ_LEN; // in chip
+
+    chan->iword = ims/600; 
+
+    ims -= chan->iword*600;
+
+    chan->ibit = ims/20; // 1 bit = 20 code = 20 ms
+    ims -= chan->ibit*20;
+
+    chan->icode = ims; // 1 code = 1 ms
+    chan->iNH_code = chan->icode;
+
+    chan->NH_code = 0x4D4EUL;
+
+    chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
+    chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
+    chan->NH_code_bit = (int)((chan->NH_code >> (19 - chan->iNH_code)) & 0x1UL ) * 2 - 1;
+
+    // Save current pseudorange
+    chan->rho0 = rho1;
+
+    return;
+}
+
+// D1 end
+
+// D2 start
+
+void beidou_task_D2(void *arg)
+{
+    sim_t *s = (sim_t *)arg;
+
+    int sv;
+
+    ephemeris eph[EPHEM_ARRAY_SIZE][MAX_SAT];
+    int neph,ieph;
+    beidou_time g0;
+
+    double llh[3];
+
+    beidou_time bdt;
+    // 模拟4个信道
+    beidou_channel chan[MAX_CHAN_SIM];
+    double elvmask = 0.0; // in degree
+
+    int ip, qp;
+    int iTable;
+    short *iq_buff = NULL;
+    int iq_buff_size;
+    beidou_time grx;
+    double delt;
+    int isamp;
+
+    int iumd;
+    int numd;
+    double **xyz;
+
+    double ant_pat[37];
+
+    UTC_time t0,tmin,tmax;
+    beidou_time gmin,gmax;
+    double dt;
+    int igrx;
+
+    int iduration;
+
+    // TODO ionoutc目前不用
+    ionoutc_t ionoutc;
+
+    double tmat[3][3];
+
+    int i,j;
+
+    int gain[MAX_CHAN_SIM];
+    double timer = 0;
+    char navfile[MAX_CHAR] = "2021.1.3.txt";
+
+    iTable = 0;
+
+    iduration = 1500;
+
+    //经纬高
+    llh[0] = 40;
+    llh[1] = 30;
+    llh[2] = 100;
+
+    iq_buff_size = NUM_IQ_SAMPLES;
+    iq_buff = calloc(2*iq_buff_size, 2);
+    if (iq_buff==NULL)
+    {
+        printf("ERROR: 分配 I/Q buff失败.\n");
+        goto exit;
+    }
+
+    delt = 1.0/(double)TX_SAMPLERATE;
+
+    // 电离层误差
+    ionoutc.enable = true;
+
+    ////////////////////////////////////////////////////////////
+    // Receiver position
+    ////////////////////////////////////////////////////////////
+    // Allocate user motion array
+    xyz = (double **)malloc(USER_MOTION_SIZE * sizeof(double**));
+
+    if (xyz==NULL)
+    {
+        printf("ERROR: Faild to allocate user motion array.\n");
+        goto exit;
+    }
+
+    for (i=0; i<USER_MOTION_SIZE; i++)
+    {
+        xyz[i] = (double *)malloc(3 * sizeof(double));
+
+        if (xyz[i]==NULL)
+        {
+            for (j=i-1; j>=0; j--)
+                free(xyz[i]);
+
+            printf("ERROR: Faild to allocate user motion array.\n");
+            goto exit;
+        }
+    }
+
+    // Static geodetic coordinates input mode: "-l"
+    printf("Using static location mode.\n");
+    llh2xyz(llh,xyz[0]); // Convert llh to xyz
+
+    numd = iduration;
+
+    for (iumd=1; iumd<numd; iumd++)
+    {
+        xyz[iumd][0] = xyz[0][0];
+        xyz[iumd][1] = xyz[0][1];
+        xyz[iumd][2] = xyz[0][2];
+    }
+
+    // Initialize the local tangential matrix for interactive mode
+    ltcmat(llh, tmat);
+
+    printf("xyz = %11.1f, %11.1f, %11.1f\n", xyz[0][0], xyz[0][1], xyz[0][2]);
+    printf("llh = %11.6f, %11.6f, %11.1f\n", llh[0]*R2D, llh[1]*R2D, llh[2]);
+
+    neph = readRinexNavAll(2, eph, &ionoutc, navfile);
+
+    if (neph==0)
+    {
+        printf("ERROR: No ephemeris available.\n");
+        goto exit;
+    }
+
+    if (ionoutc.vflag==true)
+    {
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.alpha0, ionoutc.alpha1, ionoutc.alpha2, ionoutc.alpha3);
+        printf("  %12.3e %12.3e %12.3e %12.3e\n",
+               ionoutc.beta0, ionoutc.beta1, ionoutc.beta2, ionoutc.beta3);
+        printf("   %19.11e %19.11e  %9d %9d\n",
+               ionoutc.A0, ionoutc.A1, ionoutc.tot, ionoutc.wnt);
+        printf("%6d\n", ionoutc.dtls);
+    }
+
+    gmin.second = 0.0;
+    gmax.second = 0.0;
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if (eph[0][sv].vflag==1)
+        {
+            gmin = eph[0][sv].toc;
+            tmin = eph[0][sv].t;
+            break;
+        }
+    }
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if (eph[neph-1][sv].vflag == 1)
+        {
+            gmax = eph[neph-1][sv].toc;
+            tmax = eph[neph-1][sv].t;
+            break;
+        }
+    }
+
+    g0 = gmin;
+    t0 = tmin;
+
+    printf("tmin = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           tmin.year, tmin.month, tmin.day, tmin.hour, tmin.minute, tmin.second,
+           gmin.week, gmin.second);
+    printf("tmax = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           tmax.year, tmax.month, tmax.day, tmax.hour, tmax.minute, tmax.second,
+           gmax.week, gmax.second);
+
+    printf("Start time = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
+           t0.year, t0.month, t0.day, t0.hour, t0.minute, t0.second, g0.week, g0.second);
+    printf("Duration = %.1f [sec]\n", ((double)numd)/10.0);
+
+    // Select the current set of ephemerides
+    ieph = -1;
+    for (i=0; i<neph; i++)
+    {
+        for (sv=0; sv<MAX_SAT; sv++)
+        {
+            if (eph[i][sv].vflag == 1)
+            {
+                dt = subBeidouTime(g0, eph[i][sv].toc);
+                if (dt>=-SECONDS_IN_HOUR && dt<SECONDS_IN_HOUR)
+                {
+                    ieph = i;
+                    break;
+                }
+            }
+        }
+
+        if (ieph>=0) // ieph has been set
+            break;
+    }
+
+    if (ieph == -1)
+    {
+        printf("ERROR: No current set of ephemerides has been found.\n");
+        goto exit;
+    }
+
+    ////////////////////////////////////////////////////////////
+    // 初始化发送信道
+    ////////////////////////////////////////////////////////////
+
+    // 清除信道信息
+    for(i = 0; i < MAX_CHAN_SIM; ++i)
+        chan[i].prn_num = 0;
+
+    // Clear satellite allocation flag
+    for (sv=0; sv<MAX_SAT; sv++)
+        allocatedSat[sv] = -1;
+
+    // Initial reception time
+    grx = inBeidouTime(g0, 0.0);
+
+    // 分配信道
+    allocate_channel_D2(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
+
+    printf("模拟的卫星号:");
+    for(i = 0; i < MAX_CHAN_SIM; ++i)
+        if(chan[i].prn_num > 0)
+            printf("%d,",chan[i].prn_num);
+    putchar('\n');
+
+    for(i=0; i<MAX_CHAN_SIM; i++)
+    {
+        if (chan[i].prn_num>0)
+            printf("%02d %6.1f %5.1f %11.1f %5.1f\n", chan[i].prn_num,
+                   chan[i].azel[0]*R2D, chan[i].azel[1]*R2D, chan[i].rho0.d, chan[i].rho0.iono_delay);
+    }
+
+    // Update receiver time
+    grx = inBeidouTime(grx, 0.1);
+
+    for(iumd=1; iumd<numd; iumd++){
+        //TODO 天线增益、路径损失
+
+        for (i=0; i<MAX_CHAN_SIM; i++)
+        {
+            if (chan[i].prn_num>0)
+            {
+                // Refresh code phase and data bit counters
+                range_t rho;
+                sv = chan[i].prn_num-1;
+
+                // Current pseudorange
+                computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[iumd]);
+                chan[i].azel[0] = rho.azel[0];
+                chan[i].azel[1] = rho.azel[1];
+
+                // Update code phase and data bit counters
+                computeCodePhase_D2(&chan[i], rho, 0.1);
+                chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
+            }
+        }
+        // 生成发射数据
+        for(isamp = 0; isamp < iq_buff_size; ++isamp){
+            int i_acc = 0;
+            int q_acc = 0;
+
+            for(i = 0; i < MAX_CHAN_SIM; ++i){
+                if(chan[i].prn_num > 0){
+                    
+                    iTable = (chan[i].carr_phase >> 16) & 511;
+
+                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
+                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
+
+                    i_acc += ip;
+                    q_acc += qp;
+
+                    ////////////////////////////////////////////////////////////
+                    // PRN码，NH码，导航信息 处理
+                    ////////////////////////////////////////////////////////////
+                    // 更新PRN码相位
+                    chan[i].code_phase += chan[i].f_code * delt;
+
+                    if(chan[i].code_phase >= PRN_SEQ_LEN){
+                        chan[i].code_phase -= PRN_SEQ_LEN;
+                        ++chan[i].icode;
+                        // 2 prn_code = 1 nav bit
+                        if(chan[i].icode >= 2){
+                            //printf("prn=%d,iword=%d,ibit=%d\n",chan[i].prn_num,chan[i].iword, chan[i].ibit);
+                            chan[i].icode = 0;
+                            ++chan[i].ibit;
+                            // 30 bits = 1 word
+                            if(chan[i].ibit >= WORD_LEN){
+                                chan[i].ibit = 0;
+                                //printf("prn=%d, iword= %d\n",chan[i].prn_num, chan[i].iword);
+                                ++chan[i].iword;
+                                // TODO D2 5个word 等于1帧
+                                if(chan[i].iword >= N_WORD){
+                                    chan[i].iword = 0;
+                                }
+                            }
+                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] * 2 -1;
+                        }
+                    }
+                    // PRN数据处理
+                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] * 2 -1;
+                    chan[i].carr_phase += chan[i].carr_phasestep;
+                }
+            }
+            // Scaled by 2^7
+            //i_acc = (i_acc+64)>>7;
+            //q_acc = (q_acc+64)>>7;
+
+            // 存储I/Q buff
+            iq_buff[isamp*2] = (short)i_acc;
+            iq_buff[isamp*2+1] = (short)q_acc;
+        }
+        ////////////////////////////////////////////////////////////
+        // 写入发射缓存
+        ///////////////////////////////////////////////////////////
+
+        if(!s->beidou.ready){
+            printf("Bei Dou signal is ready.\n");
+            s->beidou.ready = 1;
+            pthread_cond_signal(&(s->beidou.initialization_done));
+        }
+
+        // 等待FIFO缓存
+        pthread_mutex_lock(&(s->beidou.lock));
+        while (!is_fifo_write_ready(s))
+            pthread_cond_wait(&(s->fifo_write_ready), &(s->beidou.lock));
+        pthread_mutex_unlock(&(s->beidou.lock));
+        // 向FIFO缓存写入
+        memcpy(&(s->fifo[s->head * 2]), iq_buff, NUM_IQ_SAMPLES * 2 * sizeof(short));
+
+        s->head += (long)NUM_IQ_SAMPLES;
+        if (s->head >= FIFO_LENGTH)
+            s->head -= FIFO_LENGTH;
+        pthread_cond_signal(&(s->fifo_read_ready));
+
+        // TODO +0.05 reason
+        igrx = (int)(grx.second*10.0+0.05);
+
+        //TODO SOW+3s
+        if (igrx%30==0) // Every 3 seconds
+        {
+            // Update navigation message
+            for (i=0; i<MAX_CHAN_SIM; i++)
+            {
+                if (chan[i].prn_num>0)
+                    nav_msg_gen_D2(grx, &chan[i], 0);
+            }
+
+            // Refresh ephemeris and subframes
+            // Quick and dirty fix. Need more elegant way.
+            for (sv=0; sv<MAX_SAT; sv++)
+            {
+                if (eph[ieph+1][sv].vflag==1)
+                {
+                    dt = subBeidouTime(eph[ieph+1][sv].toc, grx);
+                    if (dt<SECONDS_IN_HOUR)
+                    {
+                        ieph++;
+
+                        for (i=0; i<MAX_CHAN_SIM; i++)
+                        {
+                            // Generate new subframes if allocated
+                            if (chan[i].prn_num!=0)
+                                eph2sbf_D2(eph[ieph][chan[i].prn_num-1],ionoutc,chan[i].subframe);
+                        }
+                    }
+
+                    break;
+                }
+            }
+            // Update channel allocation
+            allocate_channel_D2(chan, eph[ieph], ionoutc, grx, xyz[iumd], elvmask);
+        }
+        // Update receiver time
+        grx = inBeidouTime(grx, 0.1);
+
+        // Update time counter
+        printf("\rTime into run = %4.1f", subBeidouTime(grx, g0));
+        fflush(stdout);
+    }
+    s->finished = true;
+    free(iq_buff);
+
+    exit:
+    return (NULL);
+}
+
+int nav_msg_gen_D2(beidou_time bd_time, beidou_channel *chan, int init){
+    beidou_time g0;
+    unsigned long week,sow;
+
+    g0.week = bd_time.week;
+    // TODO +0.05
+    g0.second = (double)(((unsigned long)(bd_time.second+0.05))/3UL) * 3.0; // Align with the full frame length = 3 sec
+    chan->g0 = g0; // Data bit reference time
+
+    sow = g0.second;
+    /*
+    for(int i = 0; i < 5; ++i){
+        // sow 8 bits
+        chan->subframe[i][0] = (chan->subframe[i][0] & 0x3ffff00fUL) | (sow >> 12) << 4;
+        // sow 12 bits
+        chan->subframe[i][1] = (chan->subframe[i][1] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
+        // sow 8 bits
+        chan->subframe[i][5] = (chan->subframe[i][5] & 0x3ffff00fUL) | (sow >> 12) << 4;
+        // sow 12 bit
+        chan->subframe[i][6] = (chan->subframe[i][6] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
+    }
+    */
+
+    for(int i = 0; i < 5; ++i){
+        for(int j = 0; j < 10; ++j){
+            if(j % 5 != 0)
+                nav_word_gen(chan->subframe[i][j], false, chan->subframe_word_bits[(i*10+j)]);
+            else
+                nav_word_gen(chan->subframe[i][j], true, chan->subframe_word_bits[(i*10+j)]);
+        }
+    }
+    /*
+    for(int i = 1; i < 6; ++i){
+        for(int k = 0; k < 10; ++k){
+            for(int j = 0; j < 30; ++j)
+                chan->subframe_word_bits[i*10+k][j] = chan->subframe_word_bits[k][j];
+        }
+    }
+    */
+
+    for(int i = 0; i < 10; ++i)
+        for(int j = 0; j < 30; ++j)
+            chan->subframe_word_bits[50+i][j] = chan->subframe_word_bits[i][j];
+
+    return 0;
+}
+
+int allocate_channel_D2(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask)
+{
+
+    int nsat=0;
+    int i,sv;
+    double azel[2];
+
+    range_t rho;
+    double ref[3]={0.0};
+    double r_ref,r_xyz;
+    double phase_ini;
+
+    for (sv=0; sv<MAX_SAT; sv++)
+    {
+        if(checkSatVisibility(eph[sv], grx, xyz, 0.0, azel)==1)
+        {
+            nsat++; // Number of visible satellites
+
+            if (allocatedSat[sv]==-1) // Visible but not allocated
+            {
+                // Allocated new satellite
+                for (i=0; i<MAX_CHAN_SIM; i++)
+                {
+                    if (chan[i].prn_num==0)
+                    {
+                        // Initialize channel
+                        chan[i].prn_num = sv+1;
+                        chan[i].azel[0] = azel[0];
+                        chan[i].azel[1] = azel[1];
+
+                        // C/A code generation
+                        prn_code_gen(chan[i].prn_code, chan[i].prn_num);
+                        //TODO Generate subframe
+
+                        eph2sbf_D2(eph[sv], ionoutc, chan[i].subframe);
+
+                        //TODO Generate navigation message
+                        nav_msg_gen_D2(grx, &chan[i], 1);
+                        // Initialize pseudorange
+                        computeRange(&rho, eph[sv], &ionoutc, grx, xyz);
+                        chan[i].rho0 = rho;
+
+                        // Initialize carrier phase
+                        r_xyz = rho.range;
+
+                        computeRange(&rho, eph[sv], &ionoutc, grx, ref);
+                        r_ref = rho.range;
+
+                        phase_ini = (2.0*r_ref - r_xyz)/LAMBDA_B1;
+                        phase_ini -= floor(phase_ini);
+                        chan[i].carr_phase = (unsigned int)(512 * 65536.0 * phase_ini);
+                        // Done.
+                        break;
+                    }
+                }
+
+                // Set satellite allocation channel
+                if (i<MAX_CHAN_SIM)
+                    allocatedSat[sv] = i;
+            }
+        }
+        else if (allocatedSat[sv]>=0) // Not visible but allocated
+        {
+            // Clear channel
+            chan[allocatedSat[sv]].prn_num = 0;
+
+            // Clear satellite allocation flag
+            allocatedSat[sv] = -1;
+        }
+    }
+    return(nsat);
 }
 
 void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[][WORD_NUM]){
@@ -1448,7 +2645,7 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     beta3_c = convert_nav_msg_complement(beta3, 8);
 
 //    week = week & 0x1FFFUL;
-    week = (week+1) & 0x1FFFUL;
+    week = (week + 1) & 0x1FFFUL;
     second = second & 0xFFFFFUL;
     aodc = aodc & 0x1FUL;
     toc = toc & 0x1FFFFUL;
@@ -1580,550 +2777,41 @@ void eph2sbf_D2(const ephemeris eph, const ionoutc_t ionoutc, unsigned long sbf[
     sbf[4][9] = 0UL;
 }
 
-int checkSatVisibility(ephemeris eph, beidou_time g, double *xyz, double elvMask, double *azel)
+void computeCodePhase_D2(beidou_channel *chan, range_t rho1, double dt)
 {
-    double llh[3],neu[3];
-    double pos[3],vel[3],clk[3],los[3];
-    double tmat[3][3];
+    double ms;
+    int ims;
+    double rhorate;
 
-    if (eph.vflag != 1)
-        return (-1); // Invalid
+    // Pseudorange rate.
+    rhorate = (rho1.range - chan->rho0.range)/dt;
 
-    xyz2llh(xyz,llh);
-    ltcmat(llh, tmat);
+    // Carrier and code frequency.
+    chan->f_carr = -rhorate/LAMBDA_B1;
+    chan->f_code = PRN_CODE_FREQ + chan->f_carr*CARR_TO_PRN;
 
-    satpos(eph, g, pos, vel, clk);
-    subVect(los, pos, xyz);
-    ecef2neu(los, tmat, neu);
-    neu2azel(azel, neu);
+    // Initial code phase and data bit counters.
+    ms = ((subBeidouTime(chan->rho0.g,chan->g0)+0.6) - chan->rho0.range/SPEED_OF_LIGHT)*1000.0;
 
-    //return 1;
+    ims = (int)ms;
+    chan->code_phase = (ms-(double)ims)*PRN_SEQ_LEN; // in chip
 
-    if (azel[1]*R2D > elvMask)
-        return (1); // Visible
-    // else
-    return (0); // Invisible
-}
+    chan->iword = ims/60; // 1 word = 30 bits = 60 ms
 
-int allocate_channel(beidou_channel *chan, const ephemeris *eph, ionoutc_t ionoutc, beidou_time grx, double *xyz, double elvMask)
-{
+    ims -= chan->iword*60;
 
-    int nsat=0;
-    int i,sv;
-    double azel[2];
+    chan->ibit = ims/2; // 1 bit = 2 code = 2 ms
+    ims -= chan->ibit*2;
 
-    range_t rho;
-    double ref[3]={0.0};
-    double r_ref,r_xyz;
-    double phase_ini;
-
-    for (sv=0; sv<MAX_SAT; sv++)
-    {
-        if(checkSatVisibility(eph[sv], grx, xyz, 0.0, azel)==1)
-        {
-            nsat++; // Number of visible satellites
-
-            if (allocatedSat[sv]==-1) // Visible but not allocated
-            {
-                // Allocated new satellite
-                for (i=0; i<MAX_CHAN_SIM; i++)
-                {
-                    if (chan[i].prn_num==0)
-                    {
-                        // Initialize channel
-                        chan[i].prn_num = sv+1;
-                        chan[i].azel[0] = azel[0];
-                        chan[i].azel[1] = azel[1];
-
-                        // C/A code generation
-                        prn_code_gen(chan[i].prn_code, chan[i].prn_num);
-                        //TODO Generate subframe
-
-                        eph2sbf_D2(eph[sv], ionoutc, chan[i].subframe);
-
-                        //TODO Generate navigation message
-                        nav_msg_gen(grx, &chan[i], 1);
-                        // Initialize pseudorange
-                        computeRange(&rho, eph[sv], &ionoutc, grx, xyz);
-                        chan[i].rho0 = rho;
-
-                        // Initialize carrier phase
-                        r_xyz = rho.range;
-
-                        computeRange(&rho, eph[sv], &ionoutc, grx, ref);
-                        r_ref = rho.range;
-
-                        phase_ini = (2.0*r_ref - r_xyz)/LAMBDA_B1;
-                        phase_ini -= floor(phase_ini);
-                        chan[i].carr_phase = (unsigned int)(512 * 65536.0 * phase_ini);
-                        // Done.
-                        break;
-                    }
-                }
-
-                // Set satellite allocation channel
-                if (i<MAX_CHAN_SIM)
-                    allocatedSat[sv] = i;
-            }
-        }
-        else if (allocatedSat[sv]>=0) // Not visible but allocated
-        {
-            // Clear channel
-            chan[allocatedSat[sv]].prn_num = 0;
-
-            // Clear satellite allocation flag
-            allocatedSat[sv] = -1;
-        }
-    }
-    return(nsat);
-}
-
-int nav_msg_gen(beidou_time bd_time, beidou_channel *chan, int init){
-    beidou_time g0;
-    unsigned long week,sow;
-
-    g0.week = bd_time.week;
-    // TODO +0.05
-    g0.second = (double)(((unsigned long)(bd_time.second+0.05))/3UL) * 3.0; // Align with the full frame length = 3 sec
-    chan->g0 = g0; // Data bit reference time
-
-    sow = g0.second;
-    /*
-    for(int i = 0; i < 5; ++i){
-        // sow 8 bits
-        chan->subframe[i][0] = (chan->subframe[i][0] & 0x3ffff00fUL) | (sow >> 12) << 4;
-        // sow 12 bits
-        chan->subframe[i][1] = (chan->subframe[i][1] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
-        // sow 8 bits
-        chan->subframe[i][5] = (chan->subframe[i][5] & 0x3ffff00fUL) | (sow >> 12) << 4;
-        // sow 12 bit
-        chan->subframe[i][6] = (chan->subframe[i][6] & 0x3ffffUL) | (sow & 0xFFFUL) << 18;
-    }
-    */
-
-    for(int i = 0; i < 5; ++i){
-        for(int j = 0; j < 10; ++j){
-            if(j % 5 != 0)
-                nav_word_gen(chan->subframe[i][j], false, chan->subframe_word_bits[(i*10+j)]);
-            else
-                nav_word_gen(chan->subframe[i][j], true, chan->subframe_word_bits[(i*10+j)]);
-        }
-    }
-    /*
-    for(int i = 1; i < 6; ++i){
-        for(int k = 0; k < 10; ++k){
-            for(int j = 0; j < 30; ++j)
-                chan->subframe_word_bits[i*10+k][j] = chan->subframe_word_bits[k][j];
-        }
-    }
-    */
-
-    for(int i = 0; i < 10; ++i)
-        for(int j = 0; j < 30; ++j)
-            chan->subframe_word_bits[50+i][j] = chan->subframe_word_bits[i][j];
-
-    return 0;
-}
-
-void init(beidou_channel *chan, int prn_number){
-
-    // TODO 暂时为静态
-
-    chan->f_carr = 108.158;
-    chan->f_code = 2046000.14;
-    chan->code_phase = 10.34;
-
-    chan->iword = 9;
-    chan->ibit = 23;
-    chan->icode = 1;
+    chan->icode = ims; // 1 code = 1 ms
 
     chan->prn_code_bit = chan->prn_code[(int)chan->code_phase] * 2 - 1;
     chan->data_bit = chan->subframe_word_bits[chan->iword][chan->ibit] * 2  - 1;
 
+    // Save current pseudorange
+    chan->rho0 = rho1;
+
     return;
 }
 
-void *beidou_task(void *arg)
-{
-    sim_t *s = (sim_t *)arg;
-
-    int sv;
-
-    ephemeris eph[EPHEM_ARRAY_SIZE][MAX_SAT];
-    int neph,ieph;
-    beidou_time g0;
-
-    double llh[3];
-
-    beidou_time bdt;
-    // 模拟4个信道
-    beidou_channel chan[MAX_CHAN_SIM];
-    double elvmask = 0.0; // in degree
-
-    int ip, qp;
-    int iTable;
-    short *iq_buff = NULL;
-    int iq_buff_size;
-    beidou_time grx;
-    double delt;
-    int isamp;
-
-    int iumd;
-    int numd;
-    double **xyz;
-
-    double ant_pat[37];
-
-    UTC_time t0,tmin,tmax;
-    beidou_time gmin,gmax;
-    double dt;
-    int igrx;
-
-    int iduration;
-
-    // TODO ionoutc目前不用
-    ionoutc_t ionoutc;
-
-    double tmat[3][3];
-
-    int i,j;
-
-    int gain[MAX_CHAN_SIM];
-    double timer = 0;
-    char navfile[MAX_CHAR] = "2021.1.3.txt";
-
-    iTable = 0;
-
-    iduration = 1500;
-
-    //经纬高
-    llh[0] = 40;
-    llh[1] = 30;
-    llh[2] = 100;
-
-    iq_buff_size = NUM_IQ_SAMPLES;
-    iq_buff = calloc(2*iq_buff_size, 2);
-    if (iq_buff==NULL)
-    {
-        printf("ERROR: 分配 I/Q buff失败.\n");
-        goto exit;
-    }
-
-    delt = 1.0/(double)TX_SAMPLERATE;
-
-    // 电离层误差
-    ionoutc.enable = true;
-
-    ////////////////////////////////////////////////////////////
-    // Receiver position
-    ////////////////////////////////////////////////////////////
-    // Allocate user motion array
-    xyz = (double **)malloc(USER_MOTION_SIZE * sizeof(double**));
-
-    if (xyz==NULL)
-    {
-        printf("ERROR: Faild to allocate user motion array.\n");
-        goto exit;
-    }
-
-    for (i=0; i<USER_MOTION_SIZE; i++)
-    {
-        xyz[i] = (double *)malloc(3 * sizeof(double));
-
-        if (xyz[i]==NULL)
-        {
-            for (j=i-1; j>=0; j--)
-                free(xyz[i]);
-
-            printf("ERROR: Faild to allocate user motion array.\n");
-            goto exit;
-        }
-    }
-
-    // Static geodetic coordinates input mode: "-l"
-    printf("Using static location mode.\n");
-    llh2xyz(llh,xyz[0]); // Convert llh to xyz
-
-    numd = iduration;
-
-    for (iumd=1; iumd<numd; iumd++)
-    {
-        xyz[iumd][0] = xyz[0][0];
-        xyz[iumd][1] = xyz[0][1];
-        xyz[iumd][2] = xyz[0][2];
-    }
-
-    // Initialize the local tangential matrix for interactive mode
-    ltcmat(llh, tmat);
-
-    printf("xyz = %11.1f, %11.1f, %11.1f\n", xyz[0][0], xyz[0][1], xyz[0][2]);
-    printf("llh = %11.6f, %11.6f, %11.1f\n", llh[0]*R2D, llh[1]*R2D, llh[2]);
-
-    neph = readRinexNavAll(eph, &ionoutc, navfile);
-
-    if (neph==0)
-    {
-        printf("ERROR: No ephemeris available.\n");
-        goto exit;
-    }
-
-    if (ionoutc.vflag==true)
-    {
-        printf("  %12.3e %12.3e %12.3e %12.3e\n",
-               ionoutc.alpha0, ionoutc.alpha1, ionoutc.alpha2, ionoutc.alpha3);
-        printf("  %12.3e %12.3e %12.3e %12.3e\n",
-               ionoutc.beta0, ionoutc.beta1, ionoutc.beta2, ionoutc.beta3);
-        printf("   %19.11e %19.11e  %9d %9d\n",
-               ionoutc.A0, ionoutc.A1, ionoutc.tot, ionoutc.wnt);
-        printf("%6d\n", ionoutc.dtls);
-    }
-
-    gmin.second = 0.0;
-    gmax.second = 0.0;
-
-    for (sv=0; sv<MAX_SAT; sv++)
-    {
-        if (eph[0][sv].vflag==1)
-        {
-            gmin = eph[0][sv].toc;
-            tmin = eph[0][sv].t;
-            break;
-        }
-    }
-
-    for (sv=0; sv<MAX_SAT; sv++)
-    {
-        if (eph[neph-1][sv].vflag == 1)
-        {
-            gmax = eph[neph-1][sv].toc;
-            tmax = eph[neph-1][sv].t;
-            break;
-        }
-    }
-
-    g0 = gmin;
-    t0 = tmin;
-
-    printf("tmin = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-           tmin.year, tmin.month, tmin.day, tmin.hour, tmin.minute, tmin.second,
-           gmin.week, gmin.second);
-    printf("tmax = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-           tmax.year, tmax.month, tmax.day, tmax.hour, tmax.minute, tmax.second,
-           gmax.week, gmax.second);
-
-    printf("Start time = %4d/%02d/%02d,%02d:%02d:%02.0f (%d:%.0f)\n",
-           t0.year, t0.month, t0.day, t0.hour, t0.minute, t0.second, g0.week, g0.second);
-    printf("Duration = %.1f [sec]\n", ((double)numd)/10.0);
-
-    // Select the current set of ephemerides
-    ieph = -1;
-    for (i=0; i<neph; i++)
-    {
-        for (sv=0; sv<MAX_SAT; sv++)
-        {
-            if (eph[i][sv].vflag == 1)
-            {
-                dt = subBeidouTime(g0, eph[i][sv].toc);
-                if (dt>=-SECONDS_IN_HOUR && dt<SECONDS_IN_HOUR)
-                {
-                    ieph = i;
-                    break;
-                }
-            }
-        }
-
-        if (ieph>=0) // ieph has been set
-            break;
-    }
-
-    if (ieph == -1)
-    {
-        printf("ERROR: No current set of ephemerides has been found.\n");
-        goto exit;
-    }
-
-    ////////////////////////////////////////////////////////////
-    // 初始化发送信道
-    ////////////////////////////////////////////////////////////
-
-    // 清除信道信息
-    for(i = 0; i < MAX_CHAN_SIM; ++i)
-        chan[i].prn_num = 0;
-
-    // Clear satellite allocation flag
-    for (sv=0; sv<MAX_SAT; sv++)
-        allocatedSat[sv] = -1;
-
-    // Initial reception time
-    grx = inBeidouTime(g0, 0.0);
-
-    // 分配信道
-    allocate_channel(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
-
-    printf("模拟的卫星号:");
-    for(i = 0; i < MAX_CHAN_SIM; ++i)
-        if(chan[i].prn_num > 0)
-            printf("%d,",chan[i].prn_num);
-    putchar('\n');
-
-    for(i=0; i<MAX_CHAN_SIM; i++)
-    {
-        if (chan[i].prn_num>0)
-            printf("%02d %6.1f %5.1f %11.1f %5.1f\n", chan[i].prn_num,
-                   chan[i].azel[0]*R2D, chan[i].azel[1]*R2D, chan[i].rho0.d, chan[i].rho0.iono_delay);
-    }
-
-    // Update receiver time
-    grx = inBeidouTime(grx, 0.1);
-
-    for(iumd=1; iumd<numd; iumd++){
-        //TODO 天线增益、路径损失
-
-        for (i=0; i<MAX_CHAN_SIM; i++)
-        {
-            if (chan[i].prn_num>0)
-            {
-                // Refresh code phase and data bit counters
-                range_t rho;
-                sv = chan[i].prn_num-1;
-
-                // Current pseudorange
-                computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[iumd]);
-                chan[i].azel[0] = rho.azel[0];
-                chan[i].azel[1] = rho.azel[1];
-
-                // Update code phase and data bit counters
-                computeCodePhase(&chan[i], rho, 0.1);
-                chan[i].carr_phasestep = (int)(512 * 65536.0 * chan[i].f_carr * delt);
-            }
-        }
-        // 生成发射数据
-        for(isamp = 0; isamp < iq_buff_size; ++isamp){
-            int i_acc = 0;
-            int q_acc = 0;
-
-            for(i = 0; i < MAX_CHAN_SIM; ++i){
-                if(chan[i].prn_num > 0){
-                    
-                    iTable = (chan[i].carr_phase >> 16) & 511;
-
-                    ip =  chan[i].data_bit * chan[i].prn_code_bit * cosTable512[iTable] ;
-                    qp =  chan[i].data_bit * chan[i].prn_code_bit * sinTable512[iTable] ;
-
-                    i_acc += ip;
-                    q_acc += qp;
-
-                    ////////////////////////////////////////////////////////////
-                    // PRN码，NH码，导航信息 处理
-                    ////////////////////////////////////////////////////////////
-                    // 更新PRN码相位
-                    chan[i].code_phase += chan[i].f_code * delt;
-
-                    if(chan[i].code_phase >= PRN_SEQ_LEN){
-                        chan[i].code_phase -= PRN_SEQ_LEN;
-                        ++chan[i].icode;
-                        // 2 prn_code = 1 nav bit
-                        if(chan[i].icode >= 2){
-                            //printf("prn=%d,iword=%d,ibit=%d\n",chan[i].prn_num,chan[i].iword, chan[i].ibit);
-                            chan[i].icode = 0;
-                            ++chan[i].ibit;
-                            // 30 bits = 1 word
-                            if(chan[i].ibit >= WORD_LEN){
-                                chan[i].ibit = 0;
-                                //printf("prn=%d, iword= %d\n",chan[i].prn_num, chan[i].iword);
-                                ++chan[i].iword;
-                                // TODO D2 5个word 等于1帧
-                                if(chan[i].iword >= N_WORD){
-                                    chan[i].iword = 0;
-                                }
-                            }
-                            chan[i].data_bit = chan[i].subframe_word_bits[chan[i].iword][chan[i].ibit] * 2 -1;
-                        }
-                    }
-                    // PRN数据处理
-                    chan[i].prn_code_bit = chan[i].prn_code[(int)chan[i].code_phase] * 2 -1;
-                    chan[i].carr_phase += chan[i].carr_phasestep;
-                }
-            }
-            // Scaled by 2^7
-            //i_acc = (i_acc+64)>>7;
-            //q_acc = (q_acc+64)>>7;
-
-            // 存储I/Q buff
-            iq_buff[isamp*2] = (short)i_acc;
-            iq_buff[isamp*2+1] = (short)q_acc;
-        }
-        ////////////////////////////////////////////////////////////
-        // 写入发射缓存
-        ///////////////////////////////////////////////////////////
-
-        if(!s->beidou.ready){
-            printf("Bei Dou signal is ready.\n");
-            s->beidou.ready = 1;
-            pthread_cond_signal(&(s->beidou.initialization_done));
-        }
-
-        // 等待FIFO缓存
-        pthread_mutex_lock(&(s->beidou.lock));
-        while (!is_fifo_write_ready(s))
-            pthread_cond_wait(&(s->fifo_write_ready), &(s->beidou.lock));
-        pthread_mutex_unlock(&(s->beidou.lock));
-        // 向FIFO缓存写入
-        memcpy(&(s->fifo[s->head * 2]), iq_buff, NUM_IQ_SAMPLES * 2 * sizeof(short));
-
-        s->head += (long)NUM_IQ_SAMPLES;
-        if (s->head >= FIFO_LENGTH)
-            s->head -= FIFO_LENGTH;
-        pthread_cond_signal(&(s->fifo_read_ready));
-
-        // TODO +0.05 reason
-        igrx = (int)(grx.second*10.0+0.5);
-
-        //TODO SOW+3s
-        if (igrx%30==0) // Every 3 seconds
-        {
-            // Update navigation message
-            for (i=0; i<MAX_CHAN_SIM; i++)
-            {
-                if (chan[i].prn_num>0)
-                    nav_msg_gen(grx, &chan[i], 0);
-            }
-
-            // Refresh ephemeris and subframes
-            // Quick and dirty fix. Need more elegant way.
-            for (sv=0; sv<MAX_SAT; sv++)
-            {
-                if (eph[ieph+1][sv].vflag==1)
-                {
-                    dt = subBeidouTime(eph[ieph+1][sv].toc, grx);
-                    if (dt<SECONDS_IN_HOUR)
-                    {
-                        ieph++;
-
-                        for (i=0; i<MAX_CHAN_SIM; i++)
-                        {
-                            // Generate new subframes if allocated
-                            if (chan[i].prn_num!=0)
-                                eph2sbf_D2(eph[ieph][chan[i].prn_num-1],ionoutc,chan[i].subframe);
-                        }
-                    }
-
-                    break;
-                }
-            }
-            // Update channel allocation
-            allocate_channel(chan, eph[ieph], ionoutc, grx, xyz[iumd], elvmask);
-        }
-        // Update receiver time
-        grx = inBeidouTime(grx, 0.1);
-
-        // Update time counter
-        printf("\rTime into run = %4.1f", subBeidouTime(grx, g0));
-        fflush(stdout);
-    }
-    s->finished = true;
-    free(iq_buff);
-
-    exit:
-    return (NULL);
-}
+// D2 end
