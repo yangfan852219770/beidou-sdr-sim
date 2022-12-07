@@ -1233,11 +1233,6 @@ void init(beidou_channel *chan, int prn_number){
     return;
 }
 
-void *beidou_task(void *arg)
-{
-    beidou_task_D2(arg);
-}
-
 // D1 start
 
 void beidou_task_D1(void *arg)
@@ -2815,3 +2810,8 @@ void computeCodePhase_D2(beidou_channel *chan, range_t rho1, double dt)
 }
 
 // D2 end
+
+void *beidou_task(void *arg)
+{
+    beidou_task_D2(arg);
+}
